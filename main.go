@@ -1,10 +1,17 @@
 package main
 
 import (
-	"fmt"
-	"github.com/rafaeleyng/pushaas/hello"
+	"github.com/gin-gonic/gin"
+	"github.com/rafaeleyng/pushaas/controllers"
 )
 
+func setupRouter() *gin.Engine {
+	router := gin.Default()
+	controllers.SetupRootRoutes(router)
+	return router
+}
+
 func main() {
-	fmt.Println(hello.Hello())
+	router := setupRouter()
+	router.Run(":9000")
 }

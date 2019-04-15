@@ -6,3 +6,6 @@ build:
 
 run:
 	@go run main.go
+
+watch:
+	@realize start --run --no-config

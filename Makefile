@@ -5,11 +5,11 @@
 # app
 ########################################
 build:
-	@go build -o dist/pushaas pushaas/main.go
+	@go build -o dist/pushaas main.go
 
 run:
 	@# TODO: load credentials and profile from environment variables
-	@AWS_PROFILE=pushaas AWS_SDK_LOAD_CONFIG=true go run pushaas/main.go
+	@AWS_PROFILE=pushaas AWS_SDK_LOAD_CONFIG=true go run main.go
 
 watch:
 	@realize start --run --no-config
@@ -17,7 +17,11 @@ watch:
 ########################################
 # docker
 ########################################
-# docker-build-prod:
+docker-build-prod:
+	@docker build \
+		-f Dockerfile-prod \
+		-t rafaeleyng/pushaas:latest \
+		.
 
 docker-build-dev:
 	@docker build \
@@ -26,12 +30,27 @@ docker-build-dev:
 		.
 
 docker-run: docker-build-dev
-	@echo "done"
-	@docker run -it -p 9000:9000 pushaas:latest
+	@docker run \
+		-it \
+		-p 9000:9000 \
+		pushaas:latest
 
-# docker-push:
+docker-push: docker-build-prod
+	@docker push \
+		rafaeleyng/pushaas
 
 ########################################
 # services
 ########################################
-# services-up:
+services-up:
+	@docker-compose up -d
+
+services-down:
+	@docker-compose down
+
+mongo-express:
+	docker run -it --rm \
+		--network pushaas_default \
+		--name mongo-express \
+		-p 8081:8081 \
+		mongo-express

@@ -1,4 +1,4 @@
-package main
+package pushaas
 
 import (
 	"github.com/gin-gonic/gin"
@@ -12,7 +12,7 @@ func setupRouter() *gin.Engine {
 	return router
 }
 
-func main() {
+func Run() {
 	router := setupRouter()
 	router.Run(":9000")
 }

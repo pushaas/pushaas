@@ -1,10 +1,8 @@
-# version: '3'
-# services:
-#   mongo:
-#     build: .
-#     ports:
-#      - "5000:5000"
-#     volumes:
-#      - .:/code
-#   redis:
-#     image: "redis:alpine"
+version: '3'
+services:
+  mongo:
+    image: "mongo:4.0.9"
+    ports:
+     - "27017:27017"
+    volumes:
+     - /data/db

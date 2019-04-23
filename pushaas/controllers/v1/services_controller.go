@@ -1,34 +1,38 @@
 package v1
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/rafaeleyng/pushaas/pushaas/models"
+
 	"github.com/rafaeleyng/pushaas/pushaas/business"
 )
 
-func handleGetServices(c *gin.Context) {
-	c.JSON(http.StatusOK, business.Response{
-		Data: gin.H{
-			"TODO": "TODO",
-		},
-	})
-}
+//func handleGetServices(c *gin.Context) {
+//	c.JSON(http.StatusOK, business.Response{
+//		Data: gin.H{
+//			"TODO": "TODO",
+//		},
+//	})
+//}
 
-func handlePostServices(c *gin.Context) {
-	// sess, err := session.NewSession()
-	// if err != nil {
-	// 	fmt.Errorf("err", err)
-	// 	return
-	// }
-
-	// svc := ecs.New(sess)
-
-	// CreateService
-	// RegisterTaskDefinition
-	// RunTask | StartTask
-
-}
+//func handlePostServices(c *gin.Context) {
+//	// sess, err := session.NewSession()
+//	// if err != nil {
+//	// 	fmt.Errorf("err", err)
+//	// 	return
+//	// }
+//
+//	// svc := ecs.New(sess)
+//
+//	// CreateService
+//	// RegisterTaskDefinition
+//	// RunTask | StartTask
+//
+//}
 
 func handlePostInstance(c *gin.Context) {
 	// sess, err := session.NewSession()
@@ -71,11 +75,58 @@ func handlePostInstance(c *gin.Context) {
 	// }
 
 	// fmt.Println("Successfully tagged instance")
+
+	toCreate := &models.Instance{
+		Description: "an instance of a push service",
+	}
+
+	instance, err := models.InstanceSave(toCreate)
+	if err != nil {
+		fmt.Errorf("### erro %s", err)
+		c.Error(err)
+		return
+	}
+
+	c.JSON(200, business.Response{
+		Data: instance,
+	})
 }
 
-func SetupApiV1Group(router gin.IRouter) {
-	router.GET("/services", handleGetServices)
-	router.POST("/services", handlePostServices)
+func handleGetInstances(c *gin.Context) {
+	instances, err := models.InstanceGetAll()
+	if err != nil {
+		fmt.Errorf("### erro %s", err)
+		c.Error(err)
+		return
+	}
 
-	router.POST("/instances", handlePostInstance)
+	c.JSON(http.StatusOK, business.Response{
+		Data: instances,
+	})
+}
+
+func handleGetInstance(c *gin.Context) {
+	id := c.Param("id")
+	instance, err := models.InstanceGet(id)
+	if err != nil {
+		fmt.Errorf("### erro %s", err)
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, business.Response{
+		Data: instance,
+	})
+}
+
+func handleDeleteInstance(c *gin.Context) {
+	id := c.Param("id")
+	err := models.InstanceDelete(id)
+	if err != nil {
+		fmt.Errorf("### erro %s", err)
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusNoContent, nil)
 }

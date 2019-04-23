@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rafaeleyng/pushaas/business"
+	"github.com/rafaeleyng/pushaas/pushaas/business"
 )
 
 func handleGeStaticRoot(c *gin.Context) {

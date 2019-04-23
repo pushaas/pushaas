@@ -2,7 +2,8 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/rafaeleyng/pushaas/controllers"
+
+	"github.com/rafaeleyng/pushaas/pushaas/controllers"
 )
 
 func setupRouter() *gin.Engine {

@@ -1,0 +1,3 @@
+mongodb:
+  connection_string: mongodb://pushaas-mongo.tsuru:27017
+  database: pushaas

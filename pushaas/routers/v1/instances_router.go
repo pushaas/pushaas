@@ -2,44 +2,36 @@ package v1
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rafaeleyng/pushaas/pushaas/services"
 
-	"github.com/rafaeleyng/pushaas/pushaas/models"
+	"github.com/rafaeleyng/pushaas/pushaas/routers"
 
 	"github.com/rafaeleyng/pushaas/pushaas/business"
 )
 
-//func handleGetServices(c *gin.Context) {
-//	c.JSON(http.StatusOK, business.Response{
-//		Data: gin.H{
-//			"TODO": "TODO",
-//		},
-//	})
-//}
+type (
+	instanceRouter struct {
+		instanceService services.InstanceService
+		logger          *log.Logger
+	}
+)
 
-//func handlePostServices(c *gin.Context) {
-//	// sess, err := session.NewSession()
-//	// if err != nil {
-//	// 	fmt.Errorf("err", err)
-//	// 	return
-//	// }
-//
-//	// svc := ecs.New(sess)
-//
-//	// CreateService
-//	// RegisterTaskDefinition
-//	// RunTask | StartTask
-//
-//}
-
-func handlePostInstance(c *gin.Context) {
+func (r *instanceRouter) postInstance(c *gin.Context) {
 	// sess, err := session.NewSession()
 	// if err != nil {
 	// 	fmt.Errorf("err", err)
 	// 	return
 	// }
+
+	//	// svc := ecs.New(sess)
+	//
+	//	// CreateService
+	//	// RegisterTaskDefinition
+	//	// RunTask | StartTask
 
 	// svc := ec2.New(sess)
 
@@ -76,11 +68,11 @@ func handlePostInstance(c *gin.Context) {
 
 	// fmt.Println("Successfully tagged instance")
 
-	toCreate := &models.Instance{
+	toCreate := &services.Instance{
 		Description: "an instance of a push service",
 	}
 
-	instance, err := models.InstanceSave(toCreate)
+	instance, err := r.instanceService.Save(toCreate)
 	if err != nil {
 		fmt.Errorf("### erro %s", err)
 		c.Error(err)
@@ -92,8 +84,8 @@ func handlePostInstance(c *gin.Context) {
 	})
 }
 
-func handleGetInstances(c *gin.Context) {
-	instances, err := models.InstanceGetAll()
+func (r *instanceRouter) getInstances(c *gin.Context) {
+	instances, err := r.instanceService.GetAll()
 	if err != nil {
 		fmt.Errorf("### erro %s", err)
 		c.Error(err)
@@ -105,9 +97,9 @@ func handleGetInstances(c *gin.Context) {
 	})
 }
 
-func handleGetInstance(c *gin.Context) {
+func (r *instanceRouter) getInstance(c *gin.Context) {
 	id := c.Param("id")
-	instance, err := models.InstanceGet(id)
+	instanceFound, err := r.instanceService.Get(id)
 	if err != nil {
 		fmt.Errorf("### erro %s", err)
 		c.Error(err)
@@ -115,13 +107,13 @@ func handleGetInstance(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, business.Response{
-		Data: instance,
+		Data: instanceFound,
 	})
 }
 
-func handleDeleteInstance(c *gin.Context) {
+func (r *instanceRouter) deleteInstance(c *gin.Context) {
 	id := c.Param("id")
-	err := models.InstanceDelete(id)
+	err := r.instanceService.Delete(id)
 	if err != nil {
 		fmt.Errorf("### erro %s", err)
 		c.Error(err)
@@ -129,4 +121,17 @@ func handleDeleteInstance(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusNoContent, nil)
+}
+
+func InstanceRouter(router gin.IRouter, instanceService services.InstanceService) routers.Router {
+	r := &instanceRouter{
+		instanceService: instanceService,
+	}
+
+	router.GET("", r.getInstances)
+	router.GET("/:id", r.getInstance)
+	router.DELETE("/:id", r.deleteInstance)
+	router.POST("", r.postInstance)
+
+	return r
 }

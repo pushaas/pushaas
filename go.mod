@@ -17,6 +17,11 @@ require (
 	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a // indirect
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.3.0 // indirect
+	go.uber.org/atomic v1.3.2 // indirect
+	go.uber.org/dig v1.7.0 // indirect
+	go.uber.org/fx v1.9.0
+	go.uber.org/goleak v0.10.0 // indirect
+	go.uber.org/multierr v1.1.0 // indirect
 	golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3 // indirect
 	golang.org/x/sys v0.0.0-20190412213103-97732733099d // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect

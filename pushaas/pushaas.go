@@ -1,22 +1,34 @@
 package pushaas
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
+	"go.uber.org/fx"
 
-	"github.com/rafaeleyng/pushaas/pushaas/config"
-
-	"github.com/rafaeleyng/pushaas/pushaas/controllers"
+	"github.com/rafaeleyng/pushaas/pushaas/ctors"
 )
 
-func setupRouter() *gin.Engine {
-	router := gin.Default()
-	controllers.SetupRootRoutes(router)
-	return router
+func runApp(router *gin.Engine, config *viper.Viper) error {
+	port := config.GetString("server.port")
+	err := router.Run(fmt.Sprintf(":%s", port))
+	return err
 }
 
 func Run() {
-	config.SetupConfig() // TODO move this to fx initialization
+	app := fx.New(
+		fx.Provide(
+			ctors.NewViper,
+			ctors.NewLogger,
+			ctors.NewRouter,
+			ctors.NewMongodb,
 
-	router := setupRouter()
-	router.Run(":9000")
+			// services
+			ctors.NewInstanceService,
+		),
+		fx.Invoke(runApp),
+	)
+
+	app.Run()
 }

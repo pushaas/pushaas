@@ -1,11 +1,11 @@
 package v1
 
 import (
-	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+
 	"github.com/rafaeleyng/pushaas/pushaas/services"
 
 	"github.com/rafaeleyng/pushaas/pushaas/routers"
@@ -16,7 +16,7 @@ import (
 type (
 	instanceRouter struct {
 		instanceService services.InstanceService
-		logger          *log.Logger
+		logger          *zap.Logger
 	}
 )
 
@@ -74,8 +74,12 @@ func (r *instanceRouter) postInstance(c *gin.Context) {
 
 	instance, err := r.instanceService.Save(toCreate)
 	if err != nil {
-		fmt.Errorf("### erro %s", err)
-		c.Error(err)
+		r.logger.Error("error saving instance", zap.Error(err), zap.Any("instance", toCreate))
+		// TODO improve error handling
+		c.JSON(500, business.Response{
+			Data:  nil,
+			Error: err.Error(),
+		})
 		return
 	}
 
@@ -87,8 +91,12 @@ func (r *instanceRouter) postInstance(c *gin.Context) {
 func (r *instanceRouter) getInstances(c *gin.Context) {
 	instances, err := r.instanceService.GetAll()
 	if err != nil {
-		fmt.Errorf("### erro %s", err)
-		c.Error(err)
+		r.logger.Error("error getting instances", zap.Error(err))
+		// TODO improve error handling
+		c.JSON(500, business.Response{
+			Data:  nil,
+			Error: err.Error(),
+		})
 		return
 	}
 
@@ -101,8 +109,12 @@ func (r *instanceRouter) getInstance(c *gin.Context) {
 	id := c.Param("id")
 	instanceFound, err := r.instanceService.Get(id)
 	if err != nil {
-		fmt.Errorf("### erro %s", err)
-		c.Error(err)
+		r.logger.Error("error getting instance", zap.Error(err), zap.String("id", id))
+		// TODO improve error handling
+		c.JSON(500, business.Response{
+			Data:  nil,
+			Error: err.Error(),
+		})
 		return
 	}
 
@@ -115,17 +127,22 @@ func (r *instanceRouter) deleteInstance(c *gin.Context) {
 	id := c.Param("id")
 	err := r.instanceService.Delete(id)
 	if err != nil {
-		fmt.Errorf("### erro %s", err)
-		c.Error(err)
+		r.logger.Error("error deleting instance", zap.Error(err), zap.String("id", id))
+		// TODO improve error handling
+		c.JSON(500, business.Response{
+			Data:  nil,
+			Error: err.Error(),
+		})
 		return
 	}
 
 	c.JSON(http.StatusNoContent, nil)
 }
 
-func InstanceRouter(router gin.IRouter, instanceService services.InstanceService) routers.Router {
+func InstanceRouter(router gin.IRouter, logger *zap.Logger, instanceService services.InstanceService) routers.Router {
 	r := &instanceRouter{
 		instanceService: instanceService,
+		logger:          logger,
 	}
 
 	router.GET("", r.getInstances)

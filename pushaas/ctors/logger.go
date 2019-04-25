@@ -1,11 +1,22 @@
 package ctors
 
 import (
-	"log"
-	"os"
+	"github.com/spf13/viper"
+
+	"go.uber.org/zap"
 )
 
-func NewLogger() *log.Logger {
-	logger := log.New(os.Stdout, "pushaas", 0)
-	return logger
+func NewLogger(config *viper.Viper) (*zap.Logger, error) {
+	envConfig := config.Get("env")
+
+	var logger *zap.Logger
+	var err error
+
+	if envConfig == "prod" {
+		logger, err = zap.NewProduction()
+	} else {
+		logger, err = zap.NewDevelopment()
+	}
+
+	return logger, err
 }

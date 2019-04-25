@@ -2,6 +2,7 @@ package ctors
 
 import (
 	"github.com/go-bongo/bongo"
+
 	"github.com/rafaeleyng/pushaas/pushaas/services"
 )
 

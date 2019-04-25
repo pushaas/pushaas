@@ -24,7 +24,7 @@ func NewViper() (*viper.Viper, error) {
 		return nil, fmt.Errorf("you forgot to pass the %s environment variable", envVarName)
 	}
 
-	fmt.Println("env", env)
+	fmt.Println("env:", env)
 
 	config := viper.New()
 	setupDefaults(config)
@@ -40,5 +40,8 @@ func NewViper() (*viper.Viper, error) {
 	config.SetEnvKeyReplacer(replacer)
 	config.SetEnvPrefix("pushaas")
 	config.AutomaticEnv()
+
+	config.Set("env", env)
+
 	return config, nil
 }

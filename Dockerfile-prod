@@ -2,6 +2,7 @@ FROM golang:1.12
 
 ENV GO111MODULE=on
 ENV PUSHAAS_ENV=prod
+ENV PUSHAAS_CONF=./dist/config.yml
 
 WORKDIR /app
 

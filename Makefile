@@ -21,31 +21,38 @@ watch:
 ########################################
 # docker
 ########################################
-docker-build-prod:
-	@docker build \
-		-f Dockerfile-prod \
-		-t rafaeleyng/pushaas:latest \
-		.
 
+# dev
 docker-build-dev:
 	@docker build \
 		-f Dockerfile-dev \
 		-t pushaas:latest \
 		.
 
-docker-run: docker-build-dev
+docker-run-dev:
 	@docker run \
 		-it \
 		-p 9000:9000 \
 		pushaas:latest
 
-docker-run-prod: docker-build-prod
+docker-build-and-run-dev: docker-build-dev docker-run-dev
+
+# prod
+docker-build-prod:
+	@docker build \
+		-f Dockerfile-prod \
+		-t rafaeleyng/pushaas:latest \
+		.
+
+docker-run-prod:
 	@docker run \
 		-it \
 		-p 9000:9000 \
 		rafaeleyng/pushaas:latest
 
-docker-push: docker-build-prod
+docker-build-and-run-prod: docker-build-prod docker-run-prod
+
+docker-push-prod: docker-build-prod
 	@docker push \
 		rafaeleyng/pushaas
 

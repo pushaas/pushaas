@@ -29,8 +29,8 @@ func NewViper() (*viper.Viper, error) {
 	config := viper.New()
 	setupDefaults(config)
 
-	var filepath string
-	if filepath = os.Getenv(configVarName); filepath == "" {
+	filepath := os.Getenv(configVarName)
+	if filepath == "" {
 		filepath = fmt.Sprintf("./config/%s.yml", env)
 	}
 

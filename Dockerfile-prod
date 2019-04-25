@@ -1,23 +1,32 @@
-FROM golang:1.12
+# stage 1: build
+FROM golang:1.12 as builder
 
 ENV GO111MODULE=on
-ENV PUSHAAS_ENV=prod
-ENV PUSHAAS_CONF=./dist/config.yml
 
 WORKDIR /app
 
-# cache go modules
 COPY go.mod .
 COPY go.sum .
 RUN go mod download
 
 COPY . .
 
-EXPOSE 9000
-
 RUN rm -fr ./dist && mkdir ./dist
 RUN cp ./config/prod.yml ./dist/config.yml
 RUN make build
 
-# TODO pass environment variables
-ENTRYPOINT ["./dist/pushaas"]
+# stage 2: run
+FROM golang:1.12
+
+WORKDIR /app
+
+EXPOSE 9000
+
+ENV PUSHAAS_ENV=prod
+ENV PUSHAAS_CONFIG="./config.yml"
+
+COPY --from=builder /app/dist/pushaas ./pushaas
+COPY --from=builder /app/config/prod.yml ./config.yml
+
+# TODO pass AWS environment variables
+ENTRYPOINT ["/app/pushaas"]

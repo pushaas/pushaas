@@ -1,6 +1,7 @@
 FROM golang:1.12
 
 ENV GO111MODULE=on
+ENV PUSHAAS_ENV=prod
 
 WORKDIR /app
 
@@ -13,6 +14,8 @@ COPY . .
 
 EXPOSE 9000
 
+RUN rm -fr ./dist && mkdir ./dist
+RUN cp ./config/prod.yml ./dist/config.yml
 RUN make build
 
 # TODO pass environment variables

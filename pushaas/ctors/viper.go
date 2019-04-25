@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	envVarName = "ENV"
+	envVarName    = "PUSHAAS_ENV"
+	configVarName = "PUSHAAS_CONFIG"
 )
 
 func setupDefaults(config *viper.Viper) {
@@ -23,18 +24,22 @@ func NewViper() (*viper.Viper, error) {
 	if env == "" {
 		return nil, fmt.Errorf("you forgot to pass the %s environment variable", envVarName)
 	}
-
 	fmt.Println("env:", env)
 
 	config := viper.New()
 	setupDefaults(config)
 
-	filepath := fmt.Sprintf("./config/%s.yml", env)
+	var filepath string
+	if filepath = os.Getenv(configVarName); filepath == "" {
+		filepath = fmt.Sprintf("./config/%s.yml", env)
+	}
+
 	config.SetConfigFile(filepath)
 	err := config.ReadInConfig()
 	if err != nil {
-		return nil, fmt.Errorf("config file doesn't exist: %s", filepath)
+		return nil, fmt.Errorf("config file not found: %s", filepath)
 	}
+	fmt.Println("loading config from:", filepath)
 
 	replacer := strings.NewReplacer(".", "__")
 	config.SetEnvKeyReplacer(replacer)

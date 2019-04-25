@@ -4,8 +4,12 @@
 ########################################
 # app
 ########################################
-build:
-	@go build -o dist/pushaas main.go
+clean:
+	@rm -fr ./dist
+
+build: clean
+#	@cp ./config/$(ENV).yml ./dist/config.yml
+	@go build -o ./dist/pushaas main.go
 
 run:
 	@# TODO: load credentials and profile from environment variables
@@ -34,6 +38,12 @@ docker-run: docker-build-dev
 		-it \
 		-p 9000:9000 \
 		pushaas:latest
+
+docker-run-prod: docker-build-prod
+	@docker run \
+		-it \
+		-p 9000:9000 \
+		rafaeleyng/pushaas:latest
 
 docker-push: docker-build-prod
 	@docker push \

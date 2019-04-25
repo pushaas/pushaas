@@ -13,10 +13,10 @@ COPY . .
 
 RUN rm -fr ./dist && mkdir ./dist
 RUN cp ./config/prod.yml ./dist/config.yml
-RUN make build
+RUN GOARCH=amd64 CGO_ENABLED=0 GOOS=linux make build
 
 # stage 2: run
-FROM golang:1.12
+FROM alpine:latest
 
 WORKDIR /app
 

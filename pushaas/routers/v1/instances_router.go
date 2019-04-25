@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rafaeleyng/pushaas/pushaas/models"
 	"go.uber.org/zap"
 
 	"github.com/rafaeleyng/pushaas/pushaas/services"
@@ -68,7 +69,7 @@ func (r *instanceRouter) postInstance(c *gin.Context) {
 
 	// fmt.Println("Successfully tagged instance")
 
-	toCreate := &services.Instance{
+	toCreate := &models.Instance{
 		Description: "an instance of a push service",
 	}
 

@@ -1,3 +1,7 @@
+api:
+  basic_auth_user: tsuru
+  basic_auth_password: abc123
+
 mongodb:
   connection_string: mongodb://localhost:27017
   database: pushaas

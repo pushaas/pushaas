@@ -27,7 +27,7 @@ func getBasicAuthMiddleware(config *viper.Viper, logger *zap.Logger) gin.Handler
 	})
 }
 
-func NewRouter(config *viper.Viper, logger *zap.Logger, instanceService services.InstanceService) *gin.Engine {
+func NewRouter(config *viper.Viper, logger *zap.Logger, instanceService services.InstanceService, planService services.PlanService) *gin.Engine {
 	r := gin.Default()
 
 	g(r, "/static", func(r gin.IRouter) {
@@ -42,8 +42,8 @@ func NewRouter(config *viper.Viper, logger *zap.Logger, instanceService services
 		})
 
 		g(r, "/v1", func(r gin.IRouter) {
-			g(r, "/instances", func(r gin.IRouter) {
-				v1.InstanceRouter(r, logger, instanceService)
+			g(r, "/resources", func(r gin.IRouter) {
+				v1.ResourcesRouter(r, instanceService, planService)
 			})
 		})
 	})

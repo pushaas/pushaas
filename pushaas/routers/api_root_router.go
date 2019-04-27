@@ -4,8 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/rafaeleyng/pushaas/pushaas/business"
 )
 
 type (
@@ -18,7 +16,7 @@ type (
 )
 
 func (r *apiRootRouter) getApiRoot(c *gin.Context) {
-	c.JSON(http.StatusOK, business.Response{
+	c.JSON(http.StatusOK, Response{
 		Data: gin.H{
 			"app": "pushaas",
 		},
@@ -26,7 +24,7 @@ func (r *apiRootRouter) getApiRoot(c *gin.Context) {
 }
 
 func (r *apiRootRouter) getApiHealthcheck(c *gin.Context) {
-	c.JSON(http.StatusOK, business.Response{
+	c.JSON(http.StatusOK, Response{
 		Data: gin.H{
 			"services": []serviceStatus{
 				{

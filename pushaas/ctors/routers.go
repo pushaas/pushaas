@@ -2,14 +2,12 @@ package ctors
 
 import (
 	"github.com/gin-gonic/gin"
+	v1 "github.com/rafaeleyng/pushaas/pushaas/routers/v1"
+	"github.com/rafaeleyng/pushaas/pushaas/services"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	v1 "github.com/rafaeleyng/pushaas/pushaas/routers/v1"
-
 	"github.com/rafaeleyng/pushaas/pushaas/routers"
-
-	"github.com/rafaeleyng/pushaas/pushaas/services"
 )
 
 func g(router gin.IRouter, path string, groupFn func(r gin.IRouter)) {
@@ -27,26 +25,44 @@ func getBasicAuthMiddleware(config *viper.Viper, logger *zap.Logger) gin.Handler
 	})
 }
 
-func NewRouter(config *viper.Viper, logger *zap.Logger, instanceService services.InstanceService, planService services.PlanService) *gin.Engine {
+func NewRouter(
+	config *viper.Viper,
+	logger *zap.Logger,
+	staticRouter routers.StaticRouter,
+	apiRootRouter routers.ApiRootRouter,
+	resourcesRouter v1.ResourcesRouter,
+) *gin.Engine {
 	r := gin.Default()
 
 	g(r, "/static", func(r gin.IRouter) {
-		routers.StaticRouter(r)
+		staticRouter.SetupRoutes(r)
 	})
 
 	g(r, "/api", func(r gin.IRouter) {
 		r.Use(getBasicAuthMiddleware(config, logger))
 
 		g(r, "/", func(r gin.IRouter) {
-			routers.ApiRootRouter(r)
+			apiRootRouter.SetupRoutes(r)
 		})
 
 		g(r, "/v1", func(r gin.IRouter) {
 			g(r, "/resources", func(r gin.IRouter) {
-				v1.ResourcesRouter(r, instanceService, planService)
+				resourcesRouter.SetupRoutes(r)
 			})
 		})
 	})
 
 	return r
+}
+
+func NewResourcesRouter(instanceService services.InstanceService, planService services.PlanService) v1.ResourcesRouter {
+	return v1.NewResourcesRouter(instanceService, planService)
+}
+
+func NewApiRootRouter() routers.ApiRootRouter {
+	return routers.NewApiRootRouter()
+}
+
+func NewStaticRouter() routers.StaticRouter {
+	return routers.NewStaticRouter()
 }

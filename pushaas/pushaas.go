@@ -24,6 +24,11 @@ func Run() {
 			ctors.NewRouter,
 			ctors.NewMongodb,
 
+			// routers
+			ctors.NewResourcesRouter,
+			ctors.NewApiRootRouter,
+			ctors.NewStaticRouter,
+
 			// services
 			ctors.NewInstanceService,
 			ctors.NewPlanService,

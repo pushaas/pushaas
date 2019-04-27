@@ -7,6 +7,10 @@ import (
 )
 
 type (
+	StaticRouter interface {
+		Router
+	}
+
 	staticRouter struct{}
 )
 
@@ -18,10 +22,10 @@ func (r *staticRouter) getStaticRoot(c *gin.Context) {
 	})
 }
 
-func StaticRouter(router gin.IRouter) Router {
-	r := &staticRouter{}
-
+func (r *staticRouter) SetupRoutes(router gin.IRouter) {
 	router.GET("/", r.getStaticRoot)
+}
 
-	return r
+func NewStaticRouter() Router {
+	return &staticRouter{}
 }

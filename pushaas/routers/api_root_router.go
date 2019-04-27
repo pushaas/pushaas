@@ -7,6 +7,10 @@ import (
 )
 
 type (
+	ApiRootRouter interface {
+		Router
+	}
+
 	apiRootRouter struct{}
 
 	serviceStatus struct {
@@ -36,11 +40,11 @@ func (r *apiRootRouter) getApiHealthcheck(c *gin.Context) {
 	})
 }
 
-func ApiRootRouter(router gin.IRouter) Router {
-	r := &apiRootRouter{}
-
+func (r *apiRootRouter) SetupRoutes(router gin.IRouter) {
 	router.GET("/", r.getApiRoot)
 	router.GET("/healthcheck", r.getApiHealthcheck)
+}
 
-	return r
+func NewApiRootRouter() Router {
+	return &apiRootRouter{}
 }

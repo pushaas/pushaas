@@ -13,7 +13,11 @@ import (
 )
 
 type (
-	resourceRouter struct {
+	ResourcesRouter interface {
+		routers.Router
+	}
+
+	resourcesRouter struct {
 		instanceService services.InstanceService
 		planService     services.PlanService
 	}
@@ -59,7 +63,7 @@ func instanceFormFromContext(c *gin.Context) *models.InstanceForm {
 	}
 }
 
-func (r *resourceRouter) getPlansOrInstance(c *gin.Context) {
+func (r *resourcesRouter) getPlansOrInstance(c *gin.Context) {
 	name := nameFromPath(c)
 	if name == "plans" {
 		r.getPlans(c)
@@ -68,12 +72,12 @@ func (r *resourceRouter) getPlansOrInstance(c *gin.Context) {
 	}
 }
 
-func (r *resourceRouter) getPlans(c *gin.Context) {
+func (r *resourcesRouter) getPlans(c *gin.Context) {
 	plans := r.planService.GetAll()
 	c.JSON(http.StatusOK, plans)
 }
 
-func (r *resourceRouter) postInstance(c *gin.Context) {
+func (r *resourcesRouter) postInstance(c *gin.Context) {
 	instanceForm := instanceFormFromContext(c)
 	result := r.instanceService.Create(instanceForm)
 
@@ -85,7 +89,7 @@ func (r *resourceRouter) postInstance(c *gin.Context) {
 	c.Status(http.StatusCreated)
 }
 
-func (r *resourceRouter) getInstance(c *gin.Context) {
+func (r *resourcesRouter) getInstance(c *gin.Context) {
 	name := nameFromPath(c)
 	instance, result := r.instanceService.GetByName(name)
 
@@ -97,12 +101,12 @@ func (r *resourceRouter) getInstance(c *gin.Context) {
 	c.JSON(http.StatusOK, []models.Instance{*instance})
 }
 
-func (r *resourceRouter) putInstance(c *gin.Context) {
+func (r *resourcesRouter) putInstance(c *gin.Context) {
 	// this endpoint is optional, we return 404 to signal that to Tsuru
 	c.Status(http.StatusNotFound)
 }
 
-func (r *resourceRouter) deleteInstance(c *gin.Context) {
+func (r *resourcesRouter) deleteInstance(c *gin.Context) {
 	name := nameFromPath(c)
 	result := r.instanceService.Delete(name)
 
@@ -119,7 +123,7 @@ func (r *resourceRouter) deleteInstance(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (r *resourceRouter) getInstanceStatus(c *gin.Context) {
+func (r *resourcesRouter) getInstanceStatus(c *gin.Context) {
 	name := nameFromPath(c)
 	result := r.instanceService.GetStatusByName(name)
 
@@ -141,40 +145,35 @@ func (r *resourceRouter) getInstanceStatus(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func (r *resourceRouter) postAppBind(c *gin.Context) {
+func (r *resourcesRouter) postAppBind(c *gin.Context) {
 	name := nameFromPath(c)
 	bindAppForm := bindAppFormFromContext(c)
 	envVars, result := r.instanceService.BindApp(name, bindAppForm)
 	fmt.Println("result", result, envVars)
 }
 
-func (r *resourceRouter) deleteAppBind(c *gin.Context) {
+func (r *resourcesRouter) deleteAppBind(c *gin.Context) {
 	name := nameFromPath(c)
 	bindAppForm := bindAppFormFromContext(c)
 	result := r.instanceService.UnbindApp(name, bindAppForm)
 	fmt.Println("result", result)
 }
 
-func (r *resourceRouter) postUnitBind(c *gin.Context) {
+func (r *resourcesRouter) postUnitBind(c *gin.Context) {
 	name := nameFromPath(c)
 	bindUnitForm := bindUnitFormFromContext(c)
 	result := r.instanceService.BindUnit(name, bindUnitForm)
 	fmt.Println("result", result)
 }
 
-func (r *resourceRouter) deleteUnitBind(c *gin.Context) {
+func (r *resourcesRouter) deleteUnitBind(c *gin.Context) {
 	name := nameFromPath(c)
 	bindUnitForm := bindUnitFormFromContext(c)
 	result := r.instanceService.UnbindUnit(name, bindUnitForm)
 	fmt.Println("result", result)
 }
 
-func ResourcesRouter(router gin.IRouter, instanceService services.InstanceService, planService services.PlanService) routers.Router {
-	r := &resourceRouter{
-		instanceService: instanceService,
-		planService:     planService,
-	}
-
+func (r *resourcesRouter) SetupRoutes(router gin.IRouter) {
 	// default / service instance
 	router.GET("/:name", r.getPlansOrInstance)
 
@@ -189,6 +188,11 @@ func ResourcesRouter(router gin.IRouter, instanceService services.InstanceServic
 	router.DELETE("/:name/bind-app", r.deleteAppBind)
 	router.POST("/:name/bind", r.postUnitBind)
 	router.DELETE("/:name/bind", r.deleteUnitBind)
+}
 
-	return r
+func NewResourcesRouter(instanceService services.InstanceService, planService services.PlanService) routers.Router {
+	return &resourcesRouter{
+		instanceService: instanceService,
+		planService:     planService,
+	}
 }

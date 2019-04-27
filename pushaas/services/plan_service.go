@@ -9,13 +9,13 @@ type (
 		GetAll() []models.Plan
 	}
 
-	planService struct {}
+	planService struct{}
 )
 
 func (s *planService) GetAll() []models.Plan {
 	result := []models.Plan{
 		{
-			Name:        "small",
+			Name:        models.PlanSmall,
 			Description: "The only plan",
 		},
 	}
@@ -25,4 +25,3 @@ func (s *planService) GetAll() []models.Plan {
 func NewPlanService() PlanService {
 	return &planService{}
 }
-

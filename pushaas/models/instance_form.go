@@ -1,6 +1,8 @@
 package models
 
 type (
+	InstanceFormValidation int
+
 	InstanceForm struct {
 		Name string
 		Plan string
@@ -9,7 +11,17 @@ type (
 	}
 )
 
-func (i *InstanceForm) Validate() error {
-	// TODO implement
-	return nil
+const (
+	InstanceFormValid InstanceFormValidation = iota
+	InstanceFormInvalidPlan
+)
+
+func (i *InstanceForm) Validate() InstanceFormValidation {
+	if i.Plan != PlanSmall {
+		return InstanceFormInvalidPlan
+	}
+
+	// TODO validate fields
+
+	return InstanceFormValid
 }

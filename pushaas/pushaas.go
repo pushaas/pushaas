@@ -32,6 +32,9 @@ func Run() {
 			// services
 			ctors.NewInstanceService,
 			ctors.NewPlanService,
+
+			// provisioners
+			ctors.NewProvisioner,
 		),
 		fx.Invoke(runApp),
 	)

@@ -15,7 +15,7 @@ func NewMongodb(config *viper.Viper, logger *zap.Logger) (*bongo.Connection, err
 		Database:         database,
 	}
 
-	logger.Info("initializing mongodb with options", zap.String("ConnectionString", connectionString), zap.String("Database", database))
+	logger.Info("initializing mongodb with options", zap.String("connectionString", connectionString), zap.String("database", database))
 
 	return bongo.Connect(options)
 }

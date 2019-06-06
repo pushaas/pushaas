@@ -3,6 +3,8 @@ package services
 import (
 	"github.com/go-bongo/bongo"
 	"github.com/rafaeleyng/pushaas/pushaas/models"
+	"github.com/rafaeleyng/pushaas/pushaas/provisioners"
+
 	"go.uber.org/zap"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -33,6 +35,7 @@ type (
 	instanceService struct {
 		mongodb *bongo.Connection
 		logger  *zap.Logger
+		provisioner provisioners.Provisioner
 	}
 )
 
@@ -41,6 +44,7 @@ const (
 	InstanceCreationAlreadyExist
 	InstanceCreationInvalidPlan
 	InstanceCreationFailure
+	InstanceCreationProvisioningFailure
 )
 
 const (
@@ -52,6 +56,7 @@ const (
 	InstanceDeletionSuccess InstanceDeletionResult = iota
 	InstanceDeletionNotFound
 	InstanceDeletionFailure
+	InstanceDeletionDeprovisioningFailure
 )
 
 const (
@@ -120,7 +125,7 @@ func (s *instanceService) getByName(name string) (*models.Instance, InstanceRetr
 }
 
 func (s *instanceService) Create(instanceForm *models.InstanceForm) InstanceCreationResult {
-	// TODO dispatch instance provisioning
+	instanceName := instanceForm.Name
 
 	_, result := s.getByName(instanceForm.Name)
 	if result == InstanceRetrievalSuccess {
@@ -134,7 +139,6 @@ func (s *instanceService) Create(instanceForm *models.InstanceForm) InstanceCrea
 
 	instance := instanceFromInstanceForm(instanceForm)
 	instance.Status = models.InstanceStatusPending
-	//instance.Status = models.InstanceStatusRunning // TODO!!!!!!!!!!!!
 
 	err := s.getCollection().Save(instance)
 	if err != nil {
@@ -142,27 +146,41 @@ func (s *instanceService) Create(instanceForm *models.InstanceForm) InstanceCrea
 		return InstanceCreationFailure
 	}
 
+	err = s.provisioner.Provision(instanceName)
+	//instance.Status = models.InstanceStatusRunning // TODO!!!!!!!!!!!!
+	if err != nil {
+		s.logger.Error("failed to provision instance", zap.Error(err), zap.Any("instance", instance))
+		// TODO handle this error on router
+		return InstanceCreationProvisioningFailure
+	}
+
 	return InstanceCreationSuccess
 }
 
-func (s *instanceService) GetByName(name string) (*models.Instance, InstanceRetrievalResult) {
-	return s.getByName(name)
+func (s *instanceService) GetByName(instanceName string) (*models.Instance, InstanceRetrievalResult) {
+	return s.getByName(instanceName)
 }
 
-func (s *instanceService) Delete(name string) InstanceDeletionResult {
+func (s *instanceService) Delete(instanceName string) InstanceDeletionResult {
 	// TODO dispatch instance de-provisioning
 
-	query := bson.M{"name": name}
+	query := bson.M{"name": instanceName}
 	changeInfo, err := s.getCollection().Delete(query)
 
 	if err != nil {
-		s.logger.Error("error while trying to delete instance", zap.String("name", name), zap.Error(err))
+		s.logger.Error("error while trying to delete instance", zap.String("name", instanceName), zap.Error(err))
 		return InstanceDeletionFailure
 	}
 
 	if changeInfo.Removed == 0 {
-		s.logger.Error("instance not found to be deleted", zap.String("name", name))
+		s.logger.Error("instance not found to be deleted", zap.String("name", instanceName))
 		return InstanceDeletionNotFound
+	}
+
+	err = s.provisioner.Deprovision(instanceName)
+	if err != nil {
+		// TODO handle this error on router
+		return InstanceDeletionDeprovisioningFailure
 	}
 
 	return InstanceDeletionSuccess
@@ -276,9 +294,10 @@ func (s *instanceService) UnbindUnit(name string, bindUnitForm *models.BindUnitF
 	panic("implement me")
 }
 
-func NewInstanceService(logger *zap.Logger, mongodb *bongo.Connection) InstanceService {
+func NewInstanceService(logger *zap.Logger, mongodb *bongo.Connection, provisioner provisioners.Provisioner) InstanceService {
 	return &instanceService{
 		logger:  logger,
 		mongodb: mongodb,
+		provisioner: provisioner,
 	}
 }

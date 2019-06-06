@@ -1,3 +1,7 @@
+#api:
+#  basic_auth_user:
+#  basic_auth_password:
+
 mongodb:
   connection_string: mongodb://pushaas-mongo.tsuru:27017
   database: pushaas

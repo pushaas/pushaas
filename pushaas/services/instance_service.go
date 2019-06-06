@@ -250,7 +250,6 @@ func (s *instanceService) UnbindApp(name string, bindAppForm *models.BindAppForm
 		return AppUnbindInstanceNotFound
 	}
 
-	s.logger.Debug("###### ei rafael", zap.Any("name", name), zap.Any("bindAppForm", bindAppForm), zap.Any("instance", instance))
 	i := findAppIndexInBindings(bindAppForm.AppName, instance.Bindings)
 	if i == -1 {
 		s.logger.Error("instance is not bound to app", zap.String("name", name), zap.Any("bindAppForm", bindAppForm))
@@ -268,10 +267,12 @@ func (s *instanceService) UnbindApp(name string, bindAppForm *models.BindAppForm
 }
 
 func (s *instanceService) BindUnit(name string, bindUnitForm *models.BindUnitForm) UnitBindResult {
+	// TODO implement
 	panic("implement me")
 }
 
 func (s *instanceService) UnbindUnit(name string, bindUnitForm *models.BindUnitForm) UnitUnbindResult {
+	// TODO implement
 	panic("implement me")
 }
 

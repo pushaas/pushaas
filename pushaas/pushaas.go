@@ -21,10 +21,10 @@ func Run() {
 		fx.Provide(
 			ctors.NewViper,
 			ctors.NewLogger,
-			ctors.NewRouter,
 			ctors.NewMongodb,
 
 			// routers
+			ctors.NewRouter,
 			ctors.NewResourcesRouter,
 			ctors.NewApiRootRouter,
 			ctors.NewStaticRouter,

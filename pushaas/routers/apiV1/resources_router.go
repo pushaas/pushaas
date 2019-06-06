@@ -1,4 +1,4 @@
-package v1
+package apiV1
 
 import (
 	"fmt"
@@ -89,7 +89,7 @@ func (r *resourcesRouter) postInstance(c *gin.Context) {
 
 	if result == services.InstanceCreationFailure {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO
+			// TODO add remaining fields
 			Message: "failed to create",
 		})
 		return
@@ -97,7 +97,7 @@ func (r *resourcesRouter) postInstance(c *gin.Context) {
 
 	if result == services.InstanceCreationAlreadyExist {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO
+			// TODO add remaining fields
 			Message: "already exists",
 		})
 		return
@@ -105,7 +105,7 @@ func (r *resourcesRouter) postInstance(c *gin.Context) {
 
 	if result == services.InstanceCreationInvalidPlan {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO
+			// TODO add remaining fields
 			Message: "invalid plan",
 		})
 		return
@@ -137,7 +137,7 @@ func (r *resourcesRouter) deleteInstance(c *gin.Context) {
 
 	if result == services.InstanceDeletionFailure {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO
+			// TODO add remaining fields
 			Message: "failed to delete",
 		})
 		return
@@ -190,7 +190,7 @@ func (r *resourcesRouter) postAppBind(c *gin.Context) {
 
 	if result == services.AppBindInstanceFailed {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO
+			// TODO add remaining fields
 			Message: "instance failed",
 		})
 		return
@@ -198,7 +198,7 @@ func (r *resourcesRouter) postAppBind(c *gin.Context) {
 
 	if result == services.AppBindAlreadyBound {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO
+			// TODO add remaining fields
 			Message: "already bound",
 		})
 		return
@@ -206,7 +206,7 @@ func (r *resourcesRouter) postAppBind(c *gin.Context) {
 
 	if result == services.AppBindFailure {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO
+			// TODO add remaining fields
 			Message: "failure to bind",
 		})
 		return
@@ -227,7 +227,7 @@ func (r *resourcesRouter) deleteAppBind(c *gin.Context) {
 
 	if result == services.AppUnbindNotBound {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO
+			// TODO add remaining fields
 			Message: "not bound",
 		})
 		return
@@ -235,7 +235,7 @@ func (r *resourcesRouter) deleteAppBind(c *gin.Context) {
 
 	if result == services.AppUnbindFailure {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO
+			// TODO add remaining fields
 			Message: "failure to unbind",
 		})
 		return
@@ -245,7 +245,7 @@ func (r *resourcesRouter) deleteAppBind(c *gin.Context) {
 }
 
 func (r *resourcesRouter) postUnitBind(c *gin.Context) {
-	// TODO
+	// TODO implement
 	name := nameFromPath(c)
 	bindUnitForm := bindUnitFormFromContext(c)
 	result := r.instanceService.BindUnit(name, bindUnitForm)
@@ -253,7 +253,7 @@ func (r *resourcesRouter) postUnitBind(c *gin.Context) {
 }
 
 func (r *resourcesRouter) deleteUnitBind(c *gin.Context) {
-	// TODO
+	// TODO implement
 	name := nameFromPath(c)
 	bindUnitForm := bindUnitFormFromContext(c)
 	result := r.instanceService.UnbindUnit(name, bindUnitForm)

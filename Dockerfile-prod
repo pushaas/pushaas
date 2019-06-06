@@ -26,7 +26,9 @@ ENV PUSHAAS_ENV=prod
 ENV PUSHAAS_CONFIG="./config.yml"
 
 COPY --from=builder /app/dist/pushaas ./pushaas
+# TODO review this "config.yml", doesn't seem right
 COPY --from=builder /app/config/prod.yml ./config.yml
 
 # TODO pass AWS environment variables
+# TODO pass basic auth environment variables
 ENTRYPOINT ["/app/pushaas"]

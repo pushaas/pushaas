@@ -4,6 +4,9 @@
 ########################################
 # app
 ########################################
+setup:
+	@go get github.com/oxequa/realize
+
 clean:
 	@rm -fr ./dist
 
@@ -13,10 +16,10 @@ build: clean
 
 run:
 	@# TODO: load credentials and profile from environment variables
-	@AWS_PROFILE=pushaas AWS_SDK_LOAD_CONFIG=true go run main.go
+	@PUSHAAS_ENV=local AWS_PROFILE=pushaas AWS_SDK_LOAD_CONFIG=true go run main.go
 
 watch:
-	@realize start --run --no-config
+	@PUSHAAS_ENV=local realize start --run --no-config
 
 ########################################
 # docker

@@ -14,9 +14,15 @@ const (
 )
 
 func setupDefaults(config *viper.Viper) {
-	config.SetDefault("server.port", "9000")
-
+	/*
+		mongodb
+	*/
 	config.SetDefault("mongodb.database", "pushaas")
+
+	/*
+		server
+	*/
+	config.SetDefault("server.port", "9000")
 }
 
 func NewViper() (*viper.Viper, error) {
@@ -37,7 +43,7 @@ func NewViper() (*viper.Viper, error) {
 	config.SetConfigFile(filepath)
 	err := config.ReadInConfig()
 	if err != nil {
-		return nil, fmt.Errorf("config file not found: %s", filepath)
+		return nil, fmt.Errorf("error loading config file: %s", filepath)
 	}
 	fmt.Println("loading config from:", filepath)
 

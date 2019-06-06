@@ -1,6 +1,13 @@
 # pushaas
 Pushstream as a Service
 
+## developing
+
+```shell
+make setup
+make watch
+```
+
 ## ecs methods
 
 CreateService(*ecs.CreateServiceInput) (*ecs.CreateServiceOutput, error)

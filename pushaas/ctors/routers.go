@@ -2,7 +2,7 @@ package ctors
 
 import (
 	"github.com/gin-gonic/gin"
-	v1 "github.com/rafaeleyng/pushaas/pushaas/routers/v1"
+	"github.com/rafaeleyng/pushaas/pushaas/routers/apiV1"
 	"github.com/rafaeleyng/pushaas/pushaas/services"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -30,8 +30,13 @@ func NewRouter(
 	logger *zap.Logger,
 	staticRouter routers.StaticRouter,
 	apiRootRouter routers.ApiRootRouter,
-	resourcesRouter v1.ResourcesRouter,
+	resourcesRouter apiV1.ResourcesRouter,
 ) *gin.Engine {
+	envConfig := config.Get("env")
+	if envConfig == "prod" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	r := gin.Default()
 
 	g(r, "/static", func(r gin.IRouter) {
@@ -55,8 +60,8 @@ func NewRouter(
 	return r
 }
 
-func NewResourcesRouter(instanceService services.InstanceService, planService services.PlanService) v1.ResourcesRouter {
-	return v1.NewResourcesRouter(instanceService, planService)
+func NewResourcesRouter(instanceService services.InstanceService, planService services.PlanService) apiV1.ResourcesRouter {
+	return apiV1.NewResourcesRouter(instanceService, planService)
 }
 
 func NewApiRootRouter() routers.ApiRootRouter {

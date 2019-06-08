@@ -14,6 +14,12 @@ func g(router gin.IRouter, path string, groupFn func(r gin.IRouter)) {
 	groupFn(router.Group(path))
 }
 
+func getNoAuthMiddleware(config *viper.Viper, logger *zap.Logger) gin.HandlerFunc {
+	logger.Debug("configuring no auth middleware")
+
+	return func(c *gin.Context) {}
+}
+
 func getBasicAuthMiddleware(config *viper.Viper, logger *zap.Logger) gin.HandlerFunc {
 	user := config.GetString("api.basic_auth_user")
 	password := config.GetString("api.basic_auth_password")
@@ -23,6 +29,14 @@ func getBasicAuthMiddleware(config *viper.Viper, logger *zap.Logger) gin.Handler
 	return gin.BasicAuth(gin.Accounts{
 		user: password,
 	})
+}
+
+func getAuthMiddleware(config *viper.Viper, logger *zap.Logger) gin.HandlerFunc {
+	if enableAuth := config.GetBool("api.enable_auth"); enableAuth {
+		return getBasicAuthMiddleware(config, logger)
+	}
+
+	return getNoAuthMiddleware(config, logger)
 }
 
 func NewRouter(
@@ -44,7 +58,7 @@ func NewRouter(
 	})
 
 	g(r, "/api", func(r gin.IRouter) {
-		r.Use(getBasicAuthMiddleware(config, logger))
+		r.Use(getAuthMiddleware(config, logger))
 
 		g(r, "/", func(r gin.IRouter) {
 			apiRootRouter.SetupRoutes(r)

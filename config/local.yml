@@ -1,4 +1,5 @@
 api:
+  enable_auth: false
   basic_auth_user: tsuru
   basic_auth_password: abc123
 

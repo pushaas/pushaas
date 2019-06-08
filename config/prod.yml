@@ -1,5 +1,5 @@
-# TODO
-#api:
+api:
+  enable_auth: false
 #  basic_auth_user:
 #  basic_auth_password:
 

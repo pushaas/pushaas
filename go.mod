@@ -9,7 +9,7 @@ require (
 	github.com/gin-contrib/sse v0.0.0-20190301062529-5545eab6dad3 // indirect
 	github.com/gin-gonic/gin v1.3.0
 	github.com/go-bongo/bongo v0.10.4
-	github.com/go-siris/siris v7.4.0+incompatible // indirect
+	github.com/go-siris/siris v7.4.0+incompatible
 	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/json-iterator/go v1.1.6 // indirect
 	github.com/labstack/echo v3.3.10+incompatible // indirect

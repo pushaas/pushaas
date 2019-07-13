@@ -26,33 +26,38 @@ func getEnvVariable() (string, error) {
 	if env == "" {
 		fmt.Println("[config] env variable not defined, falling back to default:", defaultEnv)
 		env = defaultEnv
+		return env, nil
 	}
 
 	if _, ok := envs[env]; !ok {
 		return "", errors.New(fmt.Sprintf("you passed %s environment variable with an invalid value", envVarName))
-	} else {
-		fmt.Println("[config] env:", env)
 	}
+
+	fmt.Println("[config] env:", env)
 	return env, nil
 }
 
 func setupFromDefaults(config *viper.Viper, env string) {
 	config.Set("env", env)
 
-	/*
-		server
-	*/
+	// api
 	config.SetDefault("api.enable_auth", true)
+	config.SetDefault("api.basic_auth_user", "tsuru")
+	config.SetDefault("api.basic_auth_password", "abc123")
+	config.SetDefault("api.statics_path", "./client/build")
 
-	/*
-		mongodb
-	*/
+	// mongodb
+	config.SetDefault("mongodb.url", "mongodb://localhost:9100")
 	config.SetDefault("mongodb.database", "pushaas")
 
-	/*
-		server
-	*/
+	// provisioner
+	config.SetDefault("provisioner.provider", "aws-ecs")
+
+	// server
 	config.SetDefault("server.port", "9000")
+
+	// workers
+	config.SetDefault("workers.enabled", true)
 }
 
 func setupFromConfigurationFile(config *viper.Viper, env string) error {
@@ -64,6 +69,10 @@ func setupFromConfigurationFile(config *viper.Viper, env string) error {
 
 	config.SetConfigFile(filepath)
 	if err := config.ReadInConfig(); err != nil {
+		if env == defaultEnv {
+			fmt.Printf("[config] no config file found for default env in %s, using default config from code\n", filepath)
+			return nil
+		}
 		return errors.New(fmt.Sprintf("error loading config file: %s", filepath))
 	}
 
@@ -77,7 +86,6 @@ func setupFromEnvironment(config *viper.Viper) {
 	config.SetEnvPrefix("pushaas")
 	config.AutomaticEnv()
 }
-
 
 func NewViper() (*viper.Viper, error) {
 	env, err := getEnvVariable()

@@ -14,12 +14,25 @@ const (
 	configVarName = "PUSHAAS_CONFIG"
 )
 
+const defaultEnv = "local"
+
+var envs = map[string]struct{}{
+	defaultEnv: {},
+	"prod": {},
+}
+
 func getEnvVariable() (string, error) {
 	env := os.Getenv(envVarName)
 	if env == "" {
-		return "", errors.New(fmt.Sprintf("you forgot to pass the %s environment variable", envVarName))
+		fmt.Println("[config] env variable not defined, falling back to default:", defaultEnv)
+		env = defaultEnv
 	}
-	fmt.Println("[config] env:", env)
+
+	if _, ok := envs[env]; !ok {
+		return "", errors.New(fmt.Sprintf("you passed %s environment variable with an invalid value", envVarName))
+	} else {
+		fmt.Println("[config] env:", env)
+	}
 	return env, nil
 }
 

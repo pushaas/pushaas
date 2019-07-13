@@ -15,11 +15,11 @@ build: clean
 	@go build -o ./dist/pushaas main.go
 
 run:
-	@# TODO: load credentials and profile from environment variables
-	@PUSHAAS_ENV=local AWS_PROFILE=pushaas AWS_SDK_LOAD_CONFIG=true go run main.go
+	@# TODO: in prod, load credentials and profile from environment variables
+	@AWS_PROFILE=pushaas AWS_SDK_LOAD_CONFIG=true go run main.go
 
 watch:
-	@PUSHAAS_ENV=local realize start --run --no-config
+	@AWS_PROFILE=pushaas AWS_SDK_LOAD_CONFIG=true realize start --run --no-config
 
 ########################################
 # docker
@@ -29,14 +29,14 @@ watch:
 docker-build-dev:
 	@docker build \
 		-f Dockerfile-dev \
-		-t pushaas:latest \
+		-t pushaas-dev:latest \
 		.
 
 docker-run-dev:
 	@docker run \
 		-it \
 		-p 9000:9000 \
-		pushaas:latest
+		pushaas-dev:latest
 
 docker-build-and-run-dev: docker-build-dev docker-run-dev
 

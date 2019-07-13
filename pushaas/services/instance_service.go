@@ -50,6 +50,7 @@ const (
 const (
 	InstanceRetrievalSuccess InstanceRetrievalResult = iota
 	InstanceRetrievalNotFound
+	InstanceRetrievalFailure // TODO
 )
 
 const (

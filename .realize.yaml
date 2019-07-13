@@ -1,0 +1,21 @@
+settings:
+  legacy:
+    force: false
+    interval: 0s
+schema:
+- name: push-api
+  path: .
+  commands:
+    run:
+      status: true
+  watcher:
+    extensions:
+    - go
+    paths:
+    - /
+    ignore:
+      paths:
+      - .git
+      - .realize
+      - vendor
+      - client

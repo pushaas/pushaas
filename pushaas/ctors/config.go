@@ -37,6 +37,26 @@ func getEnvVariable() (string, error) {
 	return env, nil
 }
 
+func setupFromConfigurationFile(config *viper.Viper, env string) error {
+	// try to use custom config file, or falls back to file corresponding to env
+	filepath := os.Getenv(configVarName)
+	if filepath == "" {
+		filepath = fmt.Sprintf("./config/%s.yml", env)
+	}
+
+	config.SetConfigFile(filepath)
+	if err := config.ReadInConfig(); err != nil {
+		if env == defaultEnv {
+			fmt.Printf("[config] no config file found for default env in %s, using default config from code\n", filepath)
+			return nil
+		}
+		return errors.New(fmt.Sprintf("error loading config file: %s", filepath))
+	}
+
+	fmt.Println("[config] loaded config from file:", filepath)
+	return nil
+}
+
 func setupFromDefaults(config *viper.Viper, env string) {
 	config.Set("env", env)
 
@@ -58,26 +78,6 @@ func setupFromDefaults(config *viper.Viper, env string) {
 
 	// workers
 	config.SetDefault("workers.enabled", true)
-}
-
-func setupFromConfigurationFile(config *viper.Viper, env string) error {
-	// try to use custom config file, or falls back to file corresponding to env
-	filepath := os.Getenv(configVarName)
-	if filepath == "" {
-		filepath = fmt.Sprintf("./config/%s.yml", env)
-	}
-
-	config.SetConfigFile(filepath)
-	if err := config.ReadInConfig(); err != nil {
-		if env == defaultEnv {
-			fmt.Printf("[config] no config file found for default env in %s, using default config from code\n", filepath)
-			return nil
-		}
-		return errors.New(fmt.Sprintf("error loading config file: %s", filepath))
-	}
-
-	fmt.Println("[config] loaded config from file:", filepath)
-	return nil
 }
 
 func setupFromEnvironment(config *viper.Viper) {

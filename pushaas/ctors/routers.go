@@ -39,7 +39,7 @@ func getAuthMiddleware(config *viper.Viper, logger *zap.Logger) gin.HandlerFunc 
 	return getNoAuthMiddleware(config, logger)
 }
 
-func NewRouter(
+func NewGinRouter(
 	config *viper.Viper,
 	logger *zap.Logger,
 	rootRouter routers.RootRouter,
@@ -52,17 +52,13 @@ func NewRouter(
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	r := gin.Default()
+	baseRouter := gin.Default()
 
-	g(r, "/", func(r gin.IRouter) {
+	g(baseRouter, "/", func(r gin.IRouter) {
 		rootRouter.SetupRoutes(r)
 	})
 
-	g(r, "/static", func(r gin.IRouter) {
-		staticRouter.SetupRoutes(r)
-	})
-
-	g(r, "/api", func(r gin.IRouter) {
+	g(baseRouter, "/api", func(r gin.IRouter) {
 		r.Use(getAuthMiddleware(config, logger))
 
 		g(r, "/", func(r gin.IRouter) {
@@ -76,19 +72,28 @@ func NewRouter(
 		})
 	})
 
-	return r
+	g(baseRouter, "/admin", func(r gin.IRouter) {
+		staticRouter.SetupRoutes(r)
+		staticRouter.SetupClientSideRoutesSupport(baseRouter)
+	})
+
+	return baseRouter
 }
 
 func NewRootRouter() routers.RootRouter {
 	return routers.NewRootRouter()
 }
 
-func NewStaticRouter() routers.StaticRouter {
-	return routers.NewStaticRouter()
+func NewStaticRouter(config *viper.Viper) routers.StaticRouter {
+	return routers.NewStaticRouter(config)
 }
 
 func NewApiRootRouter() routers.ApiRootRouter {
 	return routers.NewApiRootRouter()
+}
+
+func NewAuthRouter() apiV1.AuthRouter {
+	return apiV1.NewAuthRouter()
 }
 
 func NewResourcesRouter(instanceService services.InstanceService, planService services.PlanService) apiV1.ResourcesRouter {

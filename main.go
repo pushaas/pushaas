@@ -3,22 +3,20 @@ package main
 //import "github.com/rafaeleyng/pushaas/pushaas"
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/rafaeleyng/pushaas/pushaas"
 )
 
 func main() {
-	//pushaas.Run()
+	pushaas.Run()
 
-	mySession := session.Must(session.NewSession())
-	//if err != nil {
-	//	fmt.Println(err)
-	//	return
-	//}
-
-	clusterName := aws.String("pushaas-cluster")
-	svc := ecs.New(mySession)
+	//mySession := session.Must(session.NewSession())
+	////if err != nil {
+	////	fmt.Println(err)
+	////	return
+	////}
+	//
+	//clusterName := aws.String("pushaas-cluster")
+	//svc := ecs.New(mySession)
 
 	//input := &ecs.ListServicesInput{
 	//	Cluster: clusterName,

@@ -1,5 +1,6 @@
 .idea
 dist
+config/local.yml
 
 ### go ###
 
@@ -18,4 +19,3 @@ dist
 
 
 ### goland ###
-

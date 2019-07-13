@@ -14,18 +14,12 @@ type (
 	rootRouter struct{}
 )
 
-func (r *rootRouter) getRoot(c *gin.Context) {
-	c.JSON(http.StatusOK, Response{
-		Data: gin.H{
-			"app": "pushaas",
-		},
+func (r *rootRouter) SetupRoutes(router gin.IRouter) {
+	router.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/admin")
 	})
 }
 
-func (r *rootRouter) SetupRoutes(router gin.IRouter) {
-	router.GET("/", r.getRoot)
-}
-
-func NewRootRouter() Router {
+func NewRootRouter() RootRouter {
 	return &rootRouter{}
 }

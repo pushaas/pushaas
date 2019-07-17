@@ -60,23 +60,23 @@ func (r *resourceRouter) postInstance(c *gin.Context) {
 
 	if result == services.InstanceCreationFailure {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
+			Code:    models.ErrorInstanceCreateFailed,
 			Message: "failed to create",
 		})
 		return
 	}
 
 	if result == services.InstanceCreationAlreadyExist {
-		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
+		c.JSON(http.StatusConflict, models.Error{
+			Code:    models.ErrorInstanceCreateAlreadyExists,
 			Message: "already exists",
 		})
 		return
 	}
 
 	if result == services.InstanceCreationInvalidPlan {
-		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
+		c.JSON(http.StatusBadRequest, models.Error{
+			Code:    models.ErrorInstanceCreateInvalidPlan,
 			Message: "invalid plan",
 		})
 		return
@@ -108,7 +108,7 @@ func (r *resourceRouter) deleteInstance(c *gin.Context) {
 
 	if result == services.InstanceDeletionFailure {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
+			Code:    models.ErrorInstanceDeleteFailed,
 			Message: "failed to delete",
 		})
 		return

@@ -95,7 +95,7 @@ func (s *instanceService) Create(instanceForm *models.InstanceForm) InstanceCrea
 	}
 
 	err = s.provisioner.Provision(instanceName)
-	//instance.Status = models.InstanceStatusRunning // TODO!!!!!!!!!!!!
+	//instance.Status = models.InstanceStatusRunning // TODO !!!!!!!!!!!!
 	if err != nil {
 		s.logger.Error("failed to provision instance", zap.Error(err), zap.Any("instance", instance))
 		// TODO handle this error on router

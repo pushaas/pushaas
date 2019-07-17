@@ -103,11 +103,11 @@ docker-push-prod: docker-build-prod
 ########################################
 .PHONY: services-up
 services-up:
-	@docker-compose up -d
+	@docker-compose up -d --remove-orphans
 
 .PHONY: services-down
 services-down:
-	@docker-compose down
+	@docker-compose down --remove-orphans
 
 .PHONY: mongo-express
 mongo-express:

@@ -15,21 +15,13 @@ type (
 	InstanceDeletionResult  int
 	InstanceStatusResult    int
 
-	AppBindResult   int
-	AppUnbindResult int
-
-	UnitBindResult   int
-	UnitUnbindResult int
-
 	InstanceService interface {
 		Create(instanceForm *models.InstanceForm) InstanceCreationResult
 		GetByName(name string) (*models.Instance, InstanceRetrievalResult)
 		Delete(name string) InstanceDeletionResult
 		GetStatusByName(name string) InstanceStatusResult
-		BindApp(name string, bindAppForm *models.BindAppForm) (map[string]string, AppBindResult)
-		UnbindApp(name string, bindAppForm *models.BindAppForm) AppUnbindResult
-		BindUnit(name string, bindUnitForm *models.BindUnitForm) UnitBindResult
-		UnbindUnit(name string, bindUnitForm *models.BindUnitForm) UnitUnbindResult
+
+		GetCollection() *bongo.Collection
 	}
 
 	instanceService struct {
@@ -67,37 +59,6 @@ const (
 	InstanceStatusFailure
 )
 
-const (
-	AppBindSuccess AppBindResult = iota
-	AppBindInstanceNotFound
-	AppBindInstancePending
-	AppBindInstanceFailed
-	AppBindAlreadyBound
-	AppBindFailure
-)
-
-const (
-	AppUnbindSuccess AppUnbindResult = iota
-	AppUnbindInstanceNotFound
-	AppUnbindNotBound
-	AppUnbindFailure
-)
-
-const (
-	UnitBindSuccess UnitBindResult = iota
-	UnitBindAlreadyBound
-	UnitBindInstancePending
-	UnitBindInstanceNotFound
-	UnitBindFailure
-)
-
-const (
-	UnitUnbindSuccess UnitUnbindResult = iota
-	UnitUnbindAlreadyUnbound
-	UnitUnbindInstanceNotFound
-	UnitUnbindFailure
-)
-
 func instanceFromInstanceForm(instanceForm *models.InstanceForm) *models.Instance {
 	return &models.Instance{
 		Name: instanceForm.Name,
@@ -107,28 +68,14 @@ func instanceFromInstanceForm(instanceForm *models.InstanceForm) *models.Instanc
 	}
 }
 
-func (s *instanceService) getCollection() *bongo.Collection {
+func (s *instanceService) GetCollection() *bongo.Collection {
 	return s.mongodb.Collection("instances")
-}
-
-func (s *instanceService) getByName(name string) (*models.Instance, InstanceRetrievalResult) {
-	query := bson.M{"name": name}
-	results := s.getCollection().Find(query)
-	instance := &models.Instance{}
-	ok := results.Next(instance)
-
-	if !ok {
-		s.logger.Error("instance not found", zap.String("name", name))
-		return &models.Instance{}, InstanceRetrievalNotFound
-	}
-
-	return instance, InstanceRetrievalSuccess
 }
 
 func (s *instanceService) Create(instanceForm *models.InstanceForm) InstanceCreationResult {
 	instanceName := instanceForm.Name
 
-	_, result := s.getByName(instanceForm.Name)
+	_, result := s.GetByName(instanceForm.Name)
 	if result == InstanceRetrievalSuccess {
 		return InstanceCreationAlreadyExist
 	}
@@ -141,7 +88,7 @@ func (s *instanceService) Create(instanceForm *models.InstanceForm) InstanceCrea
 	instance := instanceFromInstanceForm(instanceForm)
 	instance.Status = models.InstanceStatusPending
 
-	err := s.getCollection().Save(instance)
+	err := s.GetCollection().Save(instance)
 	if err != nil {
 		s.logger.Error("failed to create instance", zap.Error(err), zap.Any("instance", instance))
 		return InstanceCreationFailure
@@ -159,14 +106,24 @@ func (s *instanceService) Create(instanceForm *models.InstanceForm) InstanceCrea
 }
 
 func (s *instanceService) GetByName(instanceName string) (*models.Instance, InstanceRetrievalResult) {
-	return s.getByName(instanceName)
+	query := bson.M{"name": instanceName}
+	results := s.GetCollection().Find(query)
+	instance := &models.Instance{}
+	ok := results.Next(instance)
+
+	if !ok {
+		s.logger.Error("instance not found", zap.String("name", instanceName))
+		return &models.Instance{}, InstanceRetrievalNotFound
+	}
+
+	return instance, InstanceRetrievalSuccess
 }
 
 func (s *instanceService) Delete(instanceName string) InstanceDeletionResult {
 	// TODO dispatch instance de-provisioning
 
 	query := bson.M{"name": instanceName}
-	changeInfo, err := s.getCollection().Delete(query)
+	changeInfo, err := s.GetCollection().Delete(query)
 
 	if err != nil {
 		s.logger.Error("error while trying to delete instance", zap.String("name", instanceName), zap.Error(err))
@@ -188,7 +145,7 @@ func (s *instanceService) Delete(instanceName string) InstanceDeletionResult {
 }
 
 func (s *instanceService) GetStatusByName(name string) InstanceStatusResult {
-	instance, result := s.getByName(name)
+	instance, result := s.GetByName(name)
 
 	if result == InstanceRetrievalNotFound {
 		s.logger.Error("instance not found to get status", zap.String("name", name))
@@ -204,95 +161,6 @@ func (s *instanceService) GetStatusByName(name string) InstanceStatusResult {
 	}
 
 	return InstanceStatusRunning
-}
-
-func findAppIndexInBindings(appName string, bindings []models.InstanceBinding) int {
-	for i, binding := range bindings {
-		if binding.AppName == appName {
-			return i
-		}
-	}
-	return -1
-}
-
-func findAppInBindings(appName string, bindings []models.InstanceBinding) *models.InstanceBinding {
-	i := findAppIndexInBindings(appName, bindings)
-	if i == -1 {
-		return &models.InstanceBinding{}
-	}
-
-	return &bindings[i]
-}
-
-func (s *instanceService) BindApp(name string, bindAppForm *models.BindAppForm) (map[string]string, AppBindResult) {
-	instance, result := s.getByName(name)
-
-	if result == InstanceRetrievalNotFound {
-		s.logger.Error("instance not found for binding", zap.String("name", name), zap.Any("bindAppForm", bindAppForm))
-		return nil, AppBindInstanceNotFound
-	} else if instance.Status == models.InstanceStatusPending {
-		return nil, AppBindInstancePending
-	} else if instance.Status == models.InstanceStatusFailed {
-		return nil, AppBindInstanceFailed
-	}
-
-	instanceBinding := findAppInBindings(bindAppForm.AppName, instance.Bindings)
-	if instanceBinding.AppName == bindAppForm.AppName {
-		return nil, AppBindAlreadyBound
-	}
-
-	instanceBinding = &models.InstanceBinding{
-		AppName: bindAppForm.AppName,
-		AppHost: bindAppForm.AppHost,
-	}
-	instance.Bindings = append(instance.Bindings, *instanceBinding)
-	err := s.getCollection().Save(instance)
-	if err != nil {
-		s.logger.Error("failed to bind to instance", zap.String("name", name), zap.Any("bindAppForm", bindAppForm), zap.Any("instance", instance))
-		return nil, AppBindFailure
-	}
-
-	envVars := map[string]string{
-		"PUSHAAS_ENDPOINT": "TODO-endpoint",
-		"PUSHAAS_USERNAME": "TODO-username",
-		"PUSHAAS_PASSWORD": "TODO-password",
-	}
-
-	return envVars, AppBindSuccess
-}
-
-func (s *instanceService) UnbindApp(name string, bindAppForm *models.BindAppForm) AppUnbindResult {
-	instance, result := s.getByName(name)
-
-	if result == InstanceRetrievalNotFound {
-		s.logger.Error("instance not found for unbinding", zap.String("name", name), zap.Any("bindAppForm", bindAppForm))
-		return AppUnbindInstanceNotFound
-	}
-
-	i := findAppIndexInBindings(bindAppForm.AppName, instance.Bindings)
-	if i == -1 {
-		s.logger.Error("instance is not bound to app", zap.String("name", name), zap.Any("bindAppForm", bindAppForm))
-		return AppUnbindNotBound
-	}
-
-	instance.Bindings = append(instance.Bindings[:i], instance.Bindings[i+1:]...)
-	err := s.getCollection().Save(instance)
-	if err != nil {
-		s.logger.Error("failed to unbind to instance", zap.String("name", name), zap.Any("bindAppForm", bindAppForm), zap.Any("instance", instance))
-		return AppUnbindFailure
-	}
-
-	return AppUnbindSuccess
-}
-
-func (s *instanceService) BindUnit(name string, bindUnitForm *models.BindUnitForm) UnitBindResult {
-	// TODO implement
-	panic("implement me")
-}
-
-func (s *instanceService) UnbindUnit(name string, bindUnitForm *models.BindUnitForm) UnitUnbindResult {
-	// TODO implement
-	panic("implement me")
 }
 
 func NewInstanceService(logger *zap.Logger, mongodb *bongo.Connection, provisioner provisioners.Provisioner) InstanceService {

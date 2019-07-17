@@ -41,6 +41,7 @@ func Run() {
 
 			// services
 			ctors.NewInstanceService,
+			ctors.NewBindService,
 			ctors.NewPlanService,
 
 			// provisioners

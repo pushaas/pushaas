@@ -18,7 +18,7 @@ type (
 	}
 
 	bindRouter struct {
-		instanceService services.InstanceService
+		bindService services.BindService
 	}
 )
 
@@ -53,7 +53,7 @@ func bindUnitFormFromContext(c *gin.Context) *models.BindUnitForm {
 func (r *bindRouter) postAppBind(c *gin.Context) {
 	name := nameFromPath(c)
 	bindAppForm := bindAppFormFromContext(c)
-	envVars, result := r.instanceService.BindApp(name, bindAppForm)
+	envVars, result := r.bindService.BindApp(name, bindAppForm)
 
 	if result == services.AppBindInstanceNotFound {
 		c.Status(http.StatusNotFound)
@@ -95,7 +95,7 @@ func (r *bindRouter) postAppBind(c *gin.Context) {
 func (r *bindRouter) deleteAppBind(c *gin.Context) {
 	name := nameFromPath(c)
 	bindAppForm := bindAppFormFromContext(c)
-	result := r.instanceService.UnbindApp(name, bindAppForm)
+	result := r.bindService.UnbindApp(name, bindAppForm)
 
 	if result == services.AppUnbindInstanceNotFound {
 		c.Status(http.StatusNotFound)
@@ -125,7 +125,7 @@ func (r *bindRouter) postUnitBind(c *gin.Context) {
 	// TODO implement
 	name := nameFromPath(c)
 	bindUnitForm := bindUnitFormFromContext(c)
-	result := r.instanceService.BindUnit(name, bindUnitForm)
+	result := r.bindService.BindUnit(name, bindUnitForm)
 	fmt.Println("result", result)
 }
 
@@ -133,7 +133,7 @@ func (r *bindRouter) deleteUnitBind(c *gin.Context) {
 	// TODO implement
 	name := nameFromPath(c)
 	bindUnitForm := bindUnitFormFromContext(c)
-	result := r.instanceService.UnbindUnit(name, bindUnitForm)
+	result := r.bindService.UnbindUnit(name, bindUnitForm)
 	fmt.Println("result", result)
 }
 
@@ -147,8 +147,8 @@ func (r *bindRouter) SetupRoutes(router gin.IRouter) {
 	router.DELETE("/:name/bind", r.deleteUnitBind)
 }
 
-func NewBindRouter(instanceService services.InstanceService) routers.Router {
+func NewBindRouter(bindService services.BindService) routers.Router {
 	return &bindRouter{
-		instanceService: instanceService,
+		bindService: bindService,
 	}
 }

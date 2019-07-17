@@ -102,6 +102,6 @@ func NewResourceRouter(instanceService services.InstanceService, planService ser
 	return apiV1.NewResourceRouter(instanceService, planService)
 }
 
-func NewBindRouter(instanceService services.InstanceService) apiV1.BindRouter {
-	return apiV1.NewBindRouter(instanceService)
+func NewBindRouter(bindService services.BindService) apiV1.BindRouter {
+	return apiV1.NewBindRouter(bindService)
 }

@@ -13,15 +13,17 @@ type (
 
 const (
 	InstanceFormValid InstanceFormValidation = iota
-	InstanceFormInvalidPlan
+	InstanceFormInvalid
 )
 
 func (i *InstanceForm) Validate() InstanceFormValidation {
 	if i.Plan != PlanSmall {
-		return InstanceFormInvalidPlan
+		return InstanceFormInvalid
 	}
 
-	// TODO validate fields
+	if i.Name == "" {
+		return InstanceFormInvalid
+	}
 
 	return InstanceFormValid
 }

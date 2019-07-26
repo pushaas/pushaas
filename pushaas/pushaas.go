@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
@@ -11,7 +12,7 @@ import (
 	"github.com/rafaeleyng/pushaas/pushaas/ctors"
 )
 
-func runApp(logger *zap.Logger, router *gin.Engine, config *viper.Viper) error {
+func runApp(logger *zap.Logger, redisClient redis.UniversalClient, router *gin.Engine, config *viper.Viper) error {
 	log := logger.Named("runApp")
 
 	err := router.Run(fmt.Sprintf(":%s", config.GetString("server.port")))
@@ -28,7 +29,7 @@ func Run() {
 		fx.Provide(
 			ctors.NewViper,
 			ctors.NewLogger,
-			ctors.NewMongodb,
+			ctors.NewRedisClient,
 
 			// routers
 			ctors.NewGinRouter,
@@ -43,6 +44,7 @@ func Run() {
 			ctors.NewInstanceService,
 			ctors.NewBindService,
 			ctors.NewPlanService,
+			ctors.NewProvisionService,
 
 			// provisioners
 			ctors.NewProvisioner,

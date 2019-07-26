@@ -66,12 +66,14 @@ func setupFromDefaults(config *viper.Viper, env string) {
 	config.SetDefault("api.basic_auth_password", "abc123")
 	config.SetDefault("api.statics_path", "./client/build")
 
-	// mongodb
-	config.SetDefault("mongodb.url", "mongodb://localhost:9100")
-	config.SetDefault("mongodb.database", "pushaas")
-
 	// provisioner
 	config.SetDefault("provisioner.provider", "aws-ecs")
+
+	// redis
+	config.SetDefault("redis.url", "redis://localhost:6379")
+	config.SetDefault("redis.db.instance.prefix", "instance:")
+	config.SetDefault("redis.db.bindings.prefix", "bindings:")
+	config.SetDefault("redis.db.units-host.prefix", "units-host:")
 
 	// server
 	config.SetDefault("server.port", "9000")

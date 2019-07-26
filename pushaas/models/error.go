@@ -14,11 +14,20 @@ const (
 	/*
 		instance
 	*/
-	ErrorInstanceCreateFailed        = 10
-	ErrorInstanceCreateAlreadyExists = 11
-	ErrorInstanceCreateInvalidPlan   = 12
+	ErrorInstanceRetrievalFailed   = 10
+	ErrorInstanceRetrievalNotFound = 11
 
-	ErrorInstanceDeleteFailed = 20
+	ErrorInstanceCreateFailed                  = 20
+	ErrorInstanceCreateDispatchProvisionFailed = 21
+	ErrorInstanceCreateAlreadyExists           = 22
+	ErrorInstanceCreateInvalidData             = 23
+
+	ErrorInstanceDeleteFailed                    = 30
+	ErrorInstanceDeleteDispatchDeprovisionFailed = 31
+	ErrorInstanceDeleteNotFound                  = 32
+
+	ErrorInstanceStatusRetrievalFailed   = 40
+	ErrorInstanceStatusRetrievalNotFound = 41
 
 	/*
 		bind

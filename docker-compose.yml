@@ -1,8 +1,9 @@
 version: '3'
 services:
-  mongo:
-    image: "mongo:4.0.9"
+  redis:
+    image: "redis:5.0.5-alpine"
+    entrypoint: redis-server --appendonly yes
     ports:
-     - "9100:27017"
+     - "6379:6379"
     volumes:
-     - /data/db
+     - /data

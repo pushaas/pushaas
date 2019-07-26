@@ -1,12 +1,15 @@
 package services
 
 import (
-	"github.com/go-bongo/bongo"
-	"github.com/rafaeleyng/pushaas/pushaas/models"
-	"github.com/rafaeleyng/pushaas/pushaas/provisioners"
+	"fmt"
 
+	"github.com/fatih/structs"
+	"github.com/go-redis/redis"
+	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"gopkg.in/mgo.v2/bson"
+
+	"github.com/rafaeleyng/pushaas/pushaas/models"
 )
 
 type (
@@ -20,153 +23,226 @@ type (
 		GetByName(name string) (*models.Instance, InstanceRetrievalResult)
 		Delete(name string) InstanceDeletionResult
 		GetStatusByName(name string) InstanceStatusResult
-
-		GetCollection() *bongo.Collection
 	}
 
 	instanceService struct {
-		mongodb *bongo.Connection
-		logger  *zap.Logger
-		provisioner provisioners.Provisioner
-	}
-)
+		instanceKeyPrefix  string
+		bindingsKeyPrefix  string
+		unitsHostKeyPrefix string
 
-const (
-	InstanceCreationSuccess InstanceCreationResult = iota
-	InstanceCreationAlreadyExist
-	InstanceCreationInvalidPlan
-	InstanceCreationFailure
-	InstanceCreationProvisioningFailure
+		logger           *zap.Logger
+		provisionService ProvisionService
+		redisClient      redis.UniversalClient
+	}
 )
 
 const (
 	InstanceRetrievalSuccess InstanceRetrievalResult = iota
 	InstanceRetrievalNotFound
-	InstanceRetrievalFailure // TODO
+	InstanceRetrievalFailure
+)
+
+const (
+	InstanceCreationSuccess InstanceCreationResult = iota
+	InstanceCreationAlreadyExist
+	InstanceCreationInvalidData
+	InstanceCreationFailure
+	InstanceCreationProvisionFailure
 )
 
 const (
 	InstanceDeletionSuccess InstanceDeletionResult = iota
 	InstanceDeletionNotFound
 	InstanceDeletionFailure
-	InstanceDeletionDeprovisioningFailure
+	InstanceDeletionDeprovisionFailure
 )
 
 const (
-	InstanceStatusRunning InstanceStatusResult = iota
-	InstanceStatusPending
-	InstanceStatusNotFound
+	InstanceStatusNotFound InstanceStatusResult = iota
 	InstanceStatusFailure
+
+	InstanceStatusRunningStatus
+	InstanceStatusPendingStatus
+	InstanceStatusFailedStatus
 )
 
-func instanceFromInstanceForm(instanceForm *models.InstanceForm) *models.Instance {
-	return &models.Instance{
-		Name: instanceForm.Name,
-		Plan: instanceForm.Plan,
-		Team: instanceForm.Team,
-		User: instanceForm.User,
-	}
+func prefixKey(prefix, value string) string {
+	return fmt.Sprintf("%s%s", prefix, value)
 }
 
-func (s *instanceService) GetCollection() *bongo.Collection {
-	return s.mongodb.Collection("instances")
+func (s *instanceService) instanceKey(instanceName string) string {
+	return prefixKey(s.instanceKeyPrefix, instanceName)
+}
+
+func (s *instanceService) bindingsKey(instanceName string) string {
+	return prefixKey(s.bindingsKeyPrefix, instanceName)
+}
+
+func (s *instanceService) unitsHostKey(instanceName, appHost, appName string) string {
+	return prefixKey(s.unitsHostKeyPrefix, instanceName)
+}
+
+func (s *instanceService) GetByName(instanceName string) (*models.Instance, InstanceRetrievalResult) {
+	var err error
+	instanceKey := s.instanceKey(instanceName)
+
+	// retrieve
+	cmd := s.redisClient.HGetAll(instanceKey)
+	instanceMap, err := cmd.Result()
+	if err != nil {
+		s.logger.Error("failed to retrieve instance", zap.Error(err), zap.String("instance", instanceName))
+		return nil, InstanceRetrievalFailure
+	}
+	if len(instanceMap) == 0 {
+		s.logger.Info("instance not found", zap.String("instance", instanceName))
+		return nil, InstanceRetrievalNotFound
+	}
+
+	// decode
+	var instance models.Instance
+	err = mapstructure.Decode(instanceMap, &instance)
+	if err != nil {
+		s.logger.Error("failed to decode instance", zap.Error(err), zap.String("instance", instanceName))
+		return nil, InstanceRetrievalFailure
+	}
+
+	return &instance, InstanceRetrievalSuccess
+}
+
+func (s *instanceService) doCreate(instance *models.Instance) InstanceCreationResult {
+	instanceName := instance.Name
+	instance.Status = models.InstanceStatusPending
+
+	// create
+	instanceKey := s.instanceKey(instanceName)
+	// TODO decide how to add Bindings and UnitsHosts
+	//bindingsKey := s.bindingsKey(instanceName)
+	//unitsHostKey := s.unitsHostKey(instanceName)
+
+	//pipeline := s.redisClient.TxPipeline()
+	//pipeline.HMSet(instanceKey, instanceMap)
+	////pipeline.
+	//cmders, err := pipeline.Exec()
+
+	var err error
+	instanceMap := structs.Map(instance)
+	err = s.redisClient.HMSet(instanceKey, instanceMap).Err()
+	if err != nil {
+		s.logger.Error("failed to create instance", zap.Error(err), zap.Any("instance", instance))
+		return InstanceCreationFailure
+	}
+	return InstanceCreationSuccess
 }
 
 func (s *instanceService) Create(instanceForm *models.InstanceForm) InstanceCreationResult {
 	instanceName := instanceForm.Name
 
-	_, result := s.GetByName(instanceForm.Name)
-	if result == InstanceRetrievalSuccess {
+	// check existing
+	_, resultGet := s.GetByName(instanceName)
+	if resultGet == InstanceRetrievalSuccess {
 		return InstanceCreationAlreadyExist
-	}
-
-	validationResult := instanceForm.Validate()
-	if validationResult == models.InstanceFormInvalidPlan {
-		return InstanceCreationInvalidPlan
-	}
-
-	instance := instanceFromInstanceForm(instanceForm)
-	instance.Status = models.InstanceStatusPending
-
-	err := s.GetCollection().Save(instance)
-	if err != nil {
-		s.logger.Error("failed to create instance", zap.Error(err), zap.Any("instance", instance))
+	} else if resultGet == InstanceRetrievalFailure {
 		return InstanceCreationFailure
 	}
 
-	err = s.provisioner.Provision(instanceName)
-	//instance.Status = models.InstanceStatusRunning // TODO !!!!!!!!!!!!
-	if err != nil {
-		s.logger.Error("failed to provision instance", zap.Error(err), zap.Any("instance", instance))
-		// TODO handle this error on router
-		return InstanceCreationProvisioningFailure
+	// validate
+	validationResult := instanceForm.Validate()
+	if validationResult == models.InstanceFormInvalid {
+		return InstanceCreationInvalidData
+	}
+	instance := models.InstanceFromInstanceForm(instanceForm)
+
+	// create
+	resultCreate := s.doCreate(instance)
+	if resultCreate != InstanceCreationSuccess {
+		return resultCreate
+	}
+
+	// dispatch provision
+	dispatchProvisionResult := s.provisionService.DispatchProvision(instance)
+	if dispatchProvisionResult != DispatchProvisionResultSuccess {
+		s.logger.Error("failed to dispatch provision", zap.Any("instance", instance))
+		return InstanceCreationProvisionFailure
 	}
 
 	return InstanceCreationSuccess
 }
 
-func (s *instanceService) GetByName(instanceName string) (*models.Instance, InstanceRetrievalResult) {
-	query := bson.M{"name": instanceName}
-	results := s.GetCollection().Find(query)
-	instance := &models.Instance{}
-	ok := results.Next(instance)
+func (s *instanceService) doDelete(instance *models.Instance) InstanceDeletionResult {
+	instanceName := instance.Name
+	instanceKey := s.instanceKey(instanceName)
 
-	if !ok {
-		s.logger.Error("instance not found", zap.String("name", instanceName))
-		return &models.Instance{}, InstanceRetrievalNotFound
-	}
-
-	return instance, InstanceRetrievalSuccess
-}
-
-func (s *instanceService) Delete(instanceName string) InstanceDeletionResult {
-	// TODO dispatch instance de-provisioning
-
-	query := bson.M{"name": instanceName}
-	changeInfo, err := s.GetCollection().Delete(query)
+	// TODO delete Bindings and UnitsHosts as set or list or other thing
+	var err error
+	value, err := s.redisClient.Del(instanceKey).Result()
 
 	if err != nil {
 		s.logger.Error("error while trying to delete instance", zap.String("name", instanceName), zap.Error(err))
 		return InstanceDeletionFailure
-	}
-
-	if changeInfo.Removed == 0 {
+	} else if value == 0 {
 		s.logger.Error("instance not found to be deleted", zap.String("name", instanceName))
 		return InstanceDeletionNotFound
 	}
+	return InstanceDeletionSuccess
+}
 
-	err = s.provisioner.Deprovision(instanceName)
-	if err != nil {
-		// TODO handle this error on router
-		return InstanceDeletionDeprovisioningFailure
+func (s *instanceService) Delete(instanceName string) InstanceDeletionResult {
+	// check existing
+	instance, resultGet := s.GetByName(instanceName)
+	if resultGet == InstanceRetrievalNotFound {
+		return InstanceDeletionNotFound
+	} else if resultGet == InstanceRetrievalFailure {
+		return InstanceDeletionFailure
+	}
+
+	// delete
+	resultDelete := s.doDelete(instance)
+	if resultDelete != InstanceDeletionSuccess {
+		return resultDelete
+	}
+
+	// deprovision
+	dispatchDeprovisionResult := s.provisionService.DispatchDeprovision(instance)
+	if dispatchDeprovisionResult != DispatchDeprovisionResultSuccess {
+		s.logger.Error("failed to dispatch deprovision", zap.Any("instance", instance))
+		return InstanceDeletionDeprovisionFailure
 	}
 
 	return InstanceDeletionSuccess
 }
 
 func (s *instanceService) GetStatusByName(name string) InstanceStatusResult {
-	instance, result := s.GetByName(name)
-
-	if result == InstanceRetrievalNotFound {
-		s.logger.Error("instance not found to get status", zap.String("name", name))
+	// retrieve
+	instance, resultGet := s.GetByName(name)
+	if resultGet == InstanceRetrievalNotFound {
+		s.logger.Error("instance not found to check status", zap.String("name", name))
 		return InstanceStatusNotFound
-	}
-
-	if instance.Status == models.InstanceStatusPending {
-		return InstanceStatusPending
-	}
-
-	if instance.Status == models.InstanceStatusFailed {
+	} else if resultGet == InstanceRetrievalFailure {
+		s.logger.Error("failed to get instance to check status", zap.String("name", name))
 		return InstanceStatusFailure
 	}
 
-	return InstanceStatusRunning
+	// check status
+	if instance.Status == models.InstanceStatusPending {
+		return InstanceStatusPendingStatus
+	} else if instance.Status == models.InstanceStatusFailed {
+		return InstanceStatusFailedStatus
+	}
+	return InstanceStatusRunningStatus
 }
 
-func NewInstanceService(logger *zap.Logger, mongodb *bongo.Connection, provisioner provisioners.Provisioner) InstanceService {
+func NewInstanceService(config *viper.Viper, logger *zap.Logger, redisClient redis.UniversalClient, provisionService ProvisionService) InstanceService {
+	instanceKeyPrefix := config.GetString("redis.db.instance.prefix")
+	bindingsKeyPrefix := config.GetString("redis.db.bindings.prefix")
+	unitsHostKeyPrefix := config.GetString("redis.db.units-host.prefix")
+
 	return &instanceService{
-		logger:  logger,
-		mongodb: mongodb,
-		provisioner: provisioner,
+		instanceKeyPrefix:  instanceKeyPrefix,
+		bindingsKeyPrefix:  bindingsKeyPrefix,
+		unitsHostKeyPrefix: unitsHostKeyPrefix,
+
+		logger:           logger,
+		provisionService: provisionService,
+		redisClient:      redisClient,
 	}
 }

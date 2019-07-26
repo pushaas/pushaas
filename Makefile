@@ -108,11 +108,3 @@ services-up:
 .PHONY: services-down
 services-down:
 	@docker-compose down --remove-orphans
-
-.PHONY: mongo-express
-mongo-express:
-	docker run -it --rm \
-		--network $(NETWORK) \
-		--name mongo-express \
-		-p 8081:8081 \
-		mongo-express

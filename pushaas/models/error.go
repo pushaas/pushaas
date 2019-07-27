@@ -32,4 +32,13 @@ const (
 	/*
 		bind
 	*/
+	ErrorBindAppNotFound        = 100
+	ErrorBindAppAlreadyBound    = 101
+	ErrorBindAppFailed          = 102
+	ErrorBindAppInstancePending = 103
+	ErrorBindAppInstanceFailed  = 104
+
+	ErrorUnbindAppNotFound = 110
+	ErrorUnbindAppNotBound = 111
+	ErrorUnbindAppFailed   = 112
 )

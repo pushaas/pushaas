@@ -12,8 +12,8 @@ func NewPlanService() services.PlanService {
 	return services.NewPlanService()
 }
 
-func NewBindService(logger *zap.Logger, instanceService services.InstanceService) services.BindService {
-	return services.NewBindService(logger, instanceService)
+func NewBindService(config *viper.Viper, logger *zap.Logger, redisClient redis.UniversalClient, instanceService services.InstanceService) services.BindService {
+	return services.NewBindService(config, logger, redisClient, instanceService)
 }
 
 func NewProvisionService(config *viper.Viper, logger *zap.Logger, redisClient redis.UniversalClient) services.ProvisionService {

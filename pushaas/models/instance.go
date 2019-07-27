@@ -13,12 +13,12 @@ const (
 type (
 	InstanceStatus string
 
-	InstanceBinding struct {
-		AppName    string   `json:"appName"`
-		AppHost    string   `json:"appHost"`
-		// TODO
-		//UnitsHosts []string `json:"unitsHosts"`
-	}
+	//InstanceBinding struct {
+	//	AppName    string   `json:"appName"`
+	//	AppHost    string   `json:"appHost"`
+	//	// TODO
+	//	//UnitsHosts []string `json:"unitsHosts"`
+	//}
 
 	Instance struct {
 		Name               string            `json:"name"`
@@ -47,4 +47,3 @@ func InstanceFromInstanceForm(instanceForm *InstanceForm) *Instance {
 		User: instanceForm.User,
 	}
 }
-

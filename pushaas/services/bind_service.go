@@ -1,14 +1,21 @@
 package services
 
 import (
+	"fmt"
+
+	"github.com/fatih/structs"
+	"github.com/go-redis/redis"
+	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
 	"github.com/rafaeleyng/pushaas/pushaas/models"
 )
 
 type (
-	AppBindResult   int
-	AppUnbindResult int
+	appBindRetrievalResult int
+	AppBindResult          int
+	AppUnbindResult        int
 
 	UnitBindResult   int
 	UnitUnbindResult int
@@ -21,18 +28,28 @@ type (
 	}
 
 	bindService struct {
-		instanceService InstanceService
-		logger          *zap.Logger
+		bindingsKeyPrefix  string
+		unitsHostKeyPrefix string
+		instanceService    InstanceService
+		logger             *zap.Logger
+		redisClient        redis.UniversalClient
 	}
 )
 
 const (
+	appBindRetrievalSuccess appBindRetrievalResult = iota
+	appBindRetrievalNotFound
+	appBindRetrievalFailure
+)
+
+const (
 	AppBindSuccess AppBindResult = iota
-	AppBindInstanceNotFound
-	AppBindInstancePending
-	AppBindInstanceFailed
+	AppBindNotFound
 	AppBindAlreadyBound
 	AppBindFailure
+
+	AppBindInstancePending
+	AppBindInstanceFailed
 )
 
 const (
@@ -42,100 +59,144 @@ const (
 	AppUnbindFailure
 )
 
-const (
-	UnitBindSuccess UnitBindResult = iota
-	UnitBindAlreadyBound
-	UnitBindInstancePending
-	UnitBindInstanceNotFound
-	UnitBindFailure
-)
+//const (
+//	UnitBindSuccess UnitBindResult = iota
+//	UnitBindAlreadyBound
+//	UnitBindInstancePending
+//	UnitBindInstanceNotFound
+//	UnitBindFailure
+//)
+//
+//const (
+//	UnitUnbindSuccess UnitUnbindResult = iota
+//	UnitUnbindAlreadyUnbound
+//	UnitUnbindInstanceNotFound
+//	UnitUnbindFailure
+//)
 
-const (
-	UnitUnbindSuccess UnitUnbindResult = iota
-	UnitUnbindAlreadyUnbound
-	UnitUnbindInstanceNotFound
-	UnitUnbindFailure
-)
+func (s *bindService) appBindKey(instanceName, appName string) string {
+	return fmt.Sprintf("%s:%s:%s", s.bindingsKeyPrefix, instanceName, appName)
+}
 
-func findAppIndexInBindings(appName string, bindings []models.InstanceBinding) int {
-	for i, binding := range bindings {
-		if binding.AppName == appName {
-			return i
-		}
+func (s *bindService) getAppBind(instanceName, appName string) (*models.AppBind, appBindRetrievalResult) {
+	var err error
+	appBindKey := s.appBindKey(instanceName, appName)
+
+	// retrieve
+	cmd := s.redisClient.HGetAll(appBindKey)
+	appBindMap, err := cmd.Result()
+	if err != nil {
+		s.logger.Error("failed to retrieve appBind", zap.Error(err), zap.String("appBindKey", appBindKey))
+		return nil, appBindRetrievalFailure
 	}
-	return -1
-}
-
-func findAppInBindings(appName string, bindings []models.InstanceBinding) *models.InstanceBinding {
-	i := findAppIndexInBindings(appName, bindings)
-	if i == -1 {
-		return &models.InstanceBinding{}
+	if len(appBindMap) == 0 {
+		return nil, appBindRetrievalNotFound
 	}
 
-	return &bindings[i]
+	// decode
+	var appBind models.AppBind
+	err = mapstructure.Decode(appBindMap, &appBind)
+	if err != nil {
+		s.logger.Error("failed to decode appBind", zap.Error(err), zap.String("instance", instanceName))
+		return nil, appBindRetrievalFailure
+	}
+
+	return &appBind, appBindRetrievalSuccess
 }
 
-func (s *bindService) BindApp(name string, bindAppForm *models.BindAppForm) (map[string]string, AppBindResult) {
-	panic("")
-	//instance, result := s.instanceService.GetByName(name)
-	//
-	//if result == InstanceRetrievalNotFound {
-	//	s.logger.Error("instance not found for binding", zap.String("name", name), zap.Any("bindAppForm", bindAppForm))
-	//	return nil, AppBindInstanceNotFound
-	//} else if instance.Status == models.InstanceStatusPending {
-	//	return nil, AppBindInstancePending
-	//} else if instance.Status == models.InstanceStatusFailed {
-	//	return nil, AppBindInstanceFailed
-	//}
-	//
-	//instanceBinding := findAppInBindings(bindAppForm.AppName, instance.Bindings)
-	//if instanceBinding.AppName == bindAppForm.AppName {
-	//	return nil, AppBindAlreadyBound
-	//}
-	//
-	//instanceBinding = &models.InstanceBinding{
-	//	AppName: bindAppForm.AppName,
-	//	AppHost: bindAppForm.AppHost,
-	//}
-	//instance.Bindings = append(instance.Bindings, *instanceBinding)
-	//err := s.instanceService.GetCollection().Save(instance)
-	//if err != nil {
-	//	s.logger.Error("failed to bind to instance", zap.String("name", name), zap.Any("bindAppForm", bindAppForm), zap.Any("instance", instance))
-	//	return nil, AppBindFailure
-	//}
-	//
-	//envVars := map[string]string{
-	//	"PUSHAAS_ENDPOINT": "TODO-endpoint",
-	//	"PUSHAAS_USERNAME": "TODO-username",
-	//	"PUSHAAS_PASSWORD": "TODO-password",
-	//}
-	//
-	//return envVars, AppBindSuccess
+func (s *bindService) doCreateAppBind(instance *models.Instance, appBind *models.AppBind) AppBindResult {
+	appBindKey := s.appBindKey(instance.Name, appBind.AppName)
+	appBindMap := structs.Map(appBind)
+
+	err := s.redisClient.HMSet(appBindKey, appBindMap).Err()
+	if err != nil {
+		s.logger.Error("failed to create appBind", zap.Error(err), zap.Any("instance", instance), zap.Any("appBind", appBind))
+		return AppBindFailure
+	}
+	return AppBindSuccess
 }
 
-func (s *bindService) UnbindApp(name string, bindAppForm *models.BindAppForm) AppUnbindResult {
-	panic("")
-	//instance, result := s.instanceService.GetByName(name)
-	//
-	//if result == InstanceRetrievalNotFound {
-	//	s.logger.Error("instance not found for unbinding", zap.String("name", name), zap.Any("bindAppForm", bindAppForm))
-	//	return AppUnbindInstanceNotFound
-	//}
-	//
-	//i := findAppIndexInBindings(bindAppForm.AppName, instance.Bindings)
-	//if i == -1 {
-	//	s.logger.Error("instance is not bound to app", zap.String("name", name), zap.Any("bindAppForm", bindAppForm))
-	//	return AppUnbindNotBound
-	//}
-	//
-	//instance.Bindings = append(instance.Bindings[:i], instance.Bindings[i+1:]...)
-	//err := s.instanceService.GetCollection().Save(instance)
-	//if err != nil {
-	//	s.logger.Error("failed to unbind to instance", zap.String("name", name), zap.Any("bindAppForm", bindAppForm), zap.Any("instance", instance))
-	//	return AppUnbindFailure
-	//}
-	//
-	//return AppUnbindSuccess
+func (s *bindService) BindApp(instanceName string, bindAppForm *models.BindAppForm) (map[string]string, AppBindResult) {
+	// check instance existence
+	instance, resultInstanceGet := s.instanceService.GetByName(instanceName)
+	if resultInstanceGet == InstanceRetrievalNotFound {
+		s.logger.Error("instance not found for appBind", zap.String("instanceName", instanceName), zap.Any("bindAppForm", bindAppForm))
+		return nil, AppBindNotFound
+	}
+
+	// check instance status
+	if instance.Status == models.InstanceStatusPending {
+		return nil, AppBindInstancePending
+	} else if instance.Status == models.InstanceStatusFailed {
+		return nil, AppBindInstanceFailed
+	}
+
+	// check existing binding
+	_, resultAppBindGet := s.getAppBind(instance.Name, bindAppForm.AppName)
+	if resultAppBindGet == appBindRetrievalSuccess {
+		s.logger.Error("instance already bound to app", zap.String("instanceName", instanceName), zap.Any("bindAppForm", bindAppForm))
+		return nil, AppBindAlreadyBound
+	} else if resultAppBindGet == appBindRetrievalFailure {
+		return nil, AppBindFailure
+	}
+
+	appBind := models.AppBindFromForm(bindAppForm)
+
+	// bind
+	resultBind := s.doCreateAppBind(instance, appBind)
+	if resultBind != AppBindSuccess {
+		return nil, resultBind
+	}
+
+	// get instance variables
+	// TODO get variables from the real source
+	envVars := map[string]string{
+		"PUSHAAS_ENDPOINT": "TODO-endpoint",
+		"PUSHAAS_USERNAME": "TODO-username",
+		"PUSHAAS_PASSWORD": "TODO-password",
+	}
+
+	return envVars, AppBindSuccess
+}
+
+func (s *bindService) doDeleteAppBind(instance *models.Instance, appBind *models.AppBind) AppUnbindResult {
+	appBindKey := s.appBindKey(instance.Name, appBind.AppName)
+
+	value, err := s.redisClient.Del(appBindKey).Result()
+	if err != nil {
+		s.logger.Error("failed to delete appBind", zap.Error(err), zap.Any("instance", instance), zap.Any("appBind", appBind))
+		return AppUnbindFailure
+	}
+
+	if value == 0 {
+		s.logger.Error("appBind not found to be deleted", zap.String("name", instance.Name))
+		return AppUnbindNotBound
+	}
+
+	return AppUnbindSuccess
+}
+
+func (s *bindService) UnbindApp(instanceName string, bindAppForm *models.BindAppForm) AppUnbindResult {
+	// check instance existence
+	instance, resultInstanceGet := s.instanceService.GetByName(instanceName)
+	if resultInstanceGet == InstanceRetrievalNotFound {
+		s.logger.Error("instance not found for binding", zap.String("instanceName", instanceName), zap.Any("bindAppForm", bindAppForm))
+		return AppUnbindInstanceNotFound
+	}
+
+	// check existing binding
+	_, resultAppBindGet := s.getAppBind(instance.Name, bindAppForm.AppName)
+	if resultAppBindGet == appBindRetrievalNotFound {
+		s.logger.Error("instance not bound to app", zap.String("instanceName", instanceName), zap.Any("bindAppForm", bindAppForm))
+		return AppUnbindNotBound
+	} else if resultAppBindGet == appBindRetrievalFailure {
+		return AppUnbindFailure
+	}
+
+	appBind := models.AppBindFromForm(bindAppForm)
+
+	// unbind
+	return s.doDeleteAppBind(instance, appBind)
 }
 
 func (s *bindService) BindUnit(name string, bindUnitForm *models.BindUnitForm) UnitBindResult {
@@ -148,9 +209,15 @@ func (s *bindService) UnbindUnit(name string, bindUnitForm *models.BindUnitForm)
 	panic("implement me")
 }
 
-func NewBindService(logger *zap.Logger, instanceService InstanceService) BindService {
+func NewBindService(config *viper.Viper, logger *zap.Logger, redisClient redis.UniversalClient, instanceService InstanceService) BindService {
+	bindingsKeyPrefix := config.GetString("redis.db.bindings.prefix")
+	unitsHostKeyPrefix := config.GetString("redis.db.units-host.prefix")
+
 	return &bindService{
-		instanceService: instanceService,
-		logger:          logger,
+		bindingsKeyPrefix:  bindingsKeyPrefix,
+		unitsHostKeyPrefix: unitsHostKeyPrefix,
+		instanceService:    instanceService,
+		logger:             logger,
+		redisClient:        redisClient,
 	}
 }

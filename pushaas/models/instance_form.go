@@ -21,7 +21,7 @@ func (i *InstanceForm) Validate() InstanceFormValidation {
 		return InstanceFormInvalid
 	}
 
-	if i.Name == "" {
+	if i.Name == "" || i.Team == "" || i.User == "" {
 		return InstanceFormInvalid
 	}
 

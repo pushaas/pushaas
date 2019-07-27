@@ -71,9 +71,9 @@ func setupFromDefaults(config *viper.Viper, env string) {
 
 	// redis
 	config.SetDefault("redis.url", "redis://localhost:6379")
-	config.SetDefault("redis.db.instance.prefix", "instance:")
-	config.SetDefault("redis.db.bindings.prefix", "bindings:")
-	config.SetDefault("redis.db.units-host.prefix", "units-host:")
+	config.SetDefault("redis.db.instance.prefix", "instance")
+	config.SetDefault("redis.db.bindings.prefix", "bindings")
+	config.SetDefault("redis.db.units-host.prefix", "units-host")
 
 	// server
 	config.SetDefault("server.port", "9000")

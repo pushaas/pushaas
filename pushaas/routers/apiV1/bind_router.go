@@ -55,36 +55,42 @@ func (r *bindRouter) postAppBind(c *gin.Context) {
 	bindAppForm := bindAppFormFromContext(c)
 	envVars, result := r.bindService.BindApp(name, bindAppForm)
 
-	if result == services.AppBindInstanceNotFound {
-		c.Status(http.StatusNotFound)
+	if result == services.AppBindNotFound {
+		c.JSON(http.StatusNotFound, models.Error{
+			Code: models.ErrorBindAppNotFound,
+			Message: "Instance not found",
+		})
 		return
 	}
 
 	if result == services.AppBindInstancePending {
-		c.Status(http.StatusPreconditionFailed)
+		c.JSON(http.StatusPreconditionFailed, models.Error{
+			Code: models.ErrorBindAppInstancePending,
+			Message: "Instance is in pending status",
+		})
 		return
 	}
 
 	if result == services.AppBindInstanceFailed {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
-			Message: "instance failed",
+			Code: models.ErrorBindAppInstanceFailed,
+			Message: "Instance is in failed status",
 		})
 		return
 	}
 
 	if result == services.AppBindAlreadyBound {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
-			Message: "already bound",
+			Code: models.ErrorBindAppAlreadyBound,
+			Message: "Instance is already bound to app",
 		})
 		return
 	}
 
 	if result == services.AppBindFailure {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
-			Message: "failure to bind",
+			Code: models.ErrorBindAppFailed,
+			Message: "Failed to bind instance to app",
 		})
 		return
 	}
@@ -98,22 +104,25 @@ func (r *bindRouter) deleteAppBind(c *gin.Context) {
 	result := r.bindService.UnbindApp(name, bindAppForm)
 
 	if result == services.AppUnbindInstanceNotFound {
-		c.Status(http.StatusNotFound)
+		c.JSON(http.StatusNotFound, models.Error{
+			Code: models.ErrorUnbindAppNotFound,
+			Message: "Instance not found",
+		})
 		return
 	}
 
 	if result == services.AppUnbindNotBound {
-		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
-			Message: "not bound",
+		c.JSON(http.StatusNotFound, models.Error{
+			Code: models.ErrorUnbindAppNotBound,
+			Message: "Instance is not bound to app",
 		})
 		return
 	}
 
 	if result == services.AppUnbindFailure {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
-			Message: "failure to unbind",
+			Code: models.ErrorUnbindAppFailed,
+			Message: "Failed to unbind instance from app",
 		})
 		return
 	}

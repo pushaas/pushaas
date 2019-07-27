@@ -26,13 +26,10 @@ type (
 	}
 
 	instanceService struct {
-		instanceKeyPrefix  string
-		bindingsKeyPrefix  string
-		unitsHostKeyPrefix string
-
-		logger           *zap.Logger
-		provisionService ProvisionService
-		redisClient      redis.UniversalClient
+		instanceKeyPrefix string
+		logger            *zap.Logger
+		provisionService  ProvisionService
+		redisClient       redis.UniversalClient
 	}
 )
 
@@ -66,20 +63,8 @@ const (
 	InstanceStatusFailedStatus
 )
 
-func prefixKey(prefix, value string) string {
-	return fmt.Sprintf("%s%s", prefix, value)
-}
-
 func (s *instanceService) instanceKey(instanceName string) string {
-	return prefixKey(s.instanceKeyPrefix, instanceName)
-}
-
-func (s *instanceService) bindingsKey(instanceName string) string {
-	return prefixKey(s.bindingsKeyPrefix, instanceName)
-}
-
-func (s *instanceService) unitsHostKey(instanceName, appHost, appName string) string {
-	return prefixKey(s.unitsHostKeyPrefix, instanceName)
+	return fmt.Sprintf("%s:%s", s.instanceKeyPrefix, instanceName)
 }
 
 func (s *instanceService) GetByName(instanceName string) (*models.Instance, InstanceRetrievalResult) {
@@ -94,7 +79,6 @@ func (s *instanceService) GetByName(instanceName string) (*models.Instance, Inst
 		return nil, InstanceRetrievalFailure
 	}
 	if len(instanceMap) == 0 {
-		s.logger.Info("instance not found", zap.String("instance", instanceName))
 		return nil, InstanceRetrievalNotFound
 	}
 
@@ -110,23 +94,10 @@ func (s *instanceService) GetByName(instanceName string) (*models.Instance, Inst
 }
 
 func (s *instanceService) doCreate(instance *models.Instance) InstanceCreationResult {
-	instanceName := instance.Name
-	instance.Status = models.InstanceStatusPending
-
-	// create
-	instanceKey := s.instanceKey(instanceName)
-	// TODO decide how to add Bindings and UnitsHosts
-	//bindingsKey := s.bindingsKey(instanceName)
-	//unitsHostKey := s.unitsHostKey(instanceName)
-
-	//pipeline := s.redisClient.TxPipeline()
-	//pipeline.HMSet(instanceKey, instanceMap)
-	////pipeline.
-	//cmders, err := pipeline.Exec()
-
-	var err error
+	instanceKey := s.instanceKey(instance.Name)
 	instanceMap := structs.Map(instance)
-	err = s.redisClient.HMSet(instanceKey, instanceMap).Err()
+
+	err := s.redisClient.HMSet(instanceKey, instanceMap).Err()
 	if err != nil {
 		s.logger.Error("failed to create instance", zap.Error(err), zap.Any("instance", instance))
 		return InstanceCreationFailure
@@ -150,7 +121,9 @@ func (s *instanceService) Create(instanceForm *models.InstanceForm) InstanceCrea
 	if validationResult == models.InstanceFormInvalid {
 		return InstanceCreationInvalidData
 	}
+
 	instance := models.InstanceFromInstanceForm(instanceForm)
+	instance.Status = models.InstanceStatusPending
 
 	// create
 	resultCreate := s.doCreate(instance)
@@ -169,20 +142,19 @@ func (s *instanceService) Create(instanceForm *models.InstanceForm) InstanceCrea
 }
 
 func (s *instanceService) doDelete(instance *models.Instance) InstanceDeletionResult {
-	instanceName := instance.Name
-	instanceKey := s.instanceKey(instanceName)
+	instanceKey := s.instanceKey(instance.Name)
 
-	// TODO delete Bindings and UnitsHosts as set or list or other thing
-	var err error
 	value, err := s.redisClient.Del(instanceKey).Result()
-
 	if err != nil {
-		s.logger.Error("error while trying to delete instance", zap.String("name", instanceName), zap.Error(err))
+		s.logger.Error("error while trying to delete instance", zap.String("name", instance.Name), zap.Error(err))
 		return InstanceDeletionFailure
-	} else if value == 0 {
-		s.logger.Error("instance not found to be deleted", zap.String("name", instanceName))
+	}
+
+	if value == 0 {
+		s.logger.Error("instance not found to be deleted", zap.String("name", instance.Name))
 		return InstanceDeletionNotFound
 	}
+
 	return InstanceDeletionSuccess
 }
 
@@ -233,16 +205,11 @@ func (s *instanceService) GetStatusByName(name string) InstanceStatusResult {
 
 func NewInstanceService(config *viper.Viper, logger *zap.Logger, redisClient redis.UniversalClient, provisionService ProvisionService) InstanceService {
 	instanceKeyPrefix := config.GetString("redis.db.instance.prefix")
-	bindingsKeyPrefix := config.GetString("redis.db.bindings.prefix")
-	unitsHostKeyPrefix := config.GetString("redis.db.units-host.prefix")
 
 	return &instanceService{
-		instanceKeyPrefix:  instanceKeyPrefix,
-		bindingsKeyPrefix:  bindingsKeyPrefix,
-		unitsHostKeyPrefix: unitsHostKeyPrefix,
-
-		logger:           logger,
-		provisionService: provisionService,
-		redisClient:      redisClient,
+		instanceKeyPrefix: instanceKeyPrefix,
+		logger:            logger,
+		provisionService:  provisionService,
+		redisClient:       redisClient,
 	}
 }

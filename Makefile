@@ -16,6 +16,9 @@ IMAGE_TAGGED_DEV := $(IMAGE_DEV):$(TAG)
 .PHONY: setup
 setup:
 	@go get github.com/oxequa/realize
+	@go get github.com/onsi/ginkgo/ginkgo
+	@go get github.com/onsi/gomega/...
+	@go get github.com/matryer/moq
 
 .PHONY: clean
 clean:
@@ -40,6 +43,36 @@ watch: kill
 .PHONY: build-client
 build-client:
 	@cd client && yarn build
+
+########################################
+# test
+########################################
+.PHONY: test
+test:
+	@ginkgo -r -keepGoing -focus=$(FOCUS)
+
+.PHONY: test-watch
+test-watch:
+	@ginkgo watch -r -depth=0 -focus="${FOCUS}"
+
+.PHONY: test-coverage
+test-coverage:
+	go clean
+	rm -f ./coverage.out
+	@# produce a "coverage.out" file for each package, and one with all files concatenated
+	-@ginkgo -r -keepGoing -cover -coverprofile=coverage.out -outputdir=.
+	@# remove the individual files and leaves only the concatenated
+	for i in */**/coverage.out; do rm -f "$i"; done
+	@# remove repeated "mode"s in the file
+	grep -v "mode" coverage.out > temp_coverage.out && mv temp_coverage.out coverage.out
+	@# add one single "mode" at the beginning
+	echo "mode: set" | cat - coverage.out> temp_coverage.out && mv temp_coverage.out coverage.out
+	go tool cover -html=coverage.out
+
+.PHONY: test-generate-mocks
+test-generate-mocks:
+	@moq -out pushaas/mocks/provision_service.go -pkg mocks pushaas/services ProvisionService
+	@moq -out pushaas/mocks/redis_client.go -pkg mocks ${GOPATH}/src/github.com/go-redis/redis UniversalClient
 
 ########################################
 # docker

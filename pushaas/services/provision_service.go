@@ -27,10 +27,12 @@ type (
 
 const (
 	DispatchProvisionResultSuccess DispatchProvisionResult = iota
+	DispatchProvisionResultFailure
 )
 
 const (
 	DispatchDeprovisionResultSuccess DispatchDeprovisionResult = iota
+	DispatchDeprovisionResultFailure
 )
 
 func (provisionService) DispatchProvision(*models.Instance) DispatchProvisionResult {

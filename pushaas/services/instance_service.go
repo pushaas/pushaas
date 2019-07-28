@@ -75,7 +75,7 @@ func (s *instanceService) GetByName(instanceName string) (*models.Instance, Inst
 	cmd := s.redisClient.HGetAll(instanceKey)
 	instanceMap, err := cmd.Result()
 	if err != nil {
-		s.logger.Error("failed to retrieve instance", zap.Error(err), zap.String("instance", instanceName))
+		s.logger.Error("failed to retrieve instance", zap.Error(err), zap.String("instanceName", instanceName))
 		return nil, InstanceRetrievalFailure
 	}
 	if len(instanceMap) == 0 {
@@ -86,7 +86,7 @@ func (s *instanceService) GetByName(instanceName string) (*models.Instance, Inst
 	var instance models.Instance
 	err = mapstructure.Decode(instanceMap, &instance)
 	if err != nil {
-		s.logger.Error("failed to decode instance", zap.Error(err), zap.String("instance", instanceName))
+		s.logger.Error("failed to decode instance", zap.Error(err), zap.String("instanceName", instanceName))
 		return nil, InstanceRetrievalFailure
 	}
 

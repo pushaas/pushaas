@@ -29,13 +29,13 @@ var _ services.BindService = &BindServiceMock{}
 //             BindAppFunc: func(name string, bindAppForm *models.BindAppForm) (map[string]string, services.BindAppResult) {
 // 	               panic("mock out the BindApp method")
 //             },
-//             BindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.UnitBindResult {
+//             BindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.BindUnitResult {
 // 	               panic("mock out the BindUnit method")
 //             },
-//             UnbindAppFunc: func(name string, bindAppForm *models.BindAppForm) services.AppUnbindResult {
+//             UnbindAppFunc: func(name string, bindAppForm *models.BindAppForm) services.UnbindAppResult {
 // 	               panic("mock out the UnbindApp method")
 //             },
-//             UnbindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.UnitUnbindResult {
+//             UnbindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.UnbindUnitResult {
 // 	               panic("mock out the UnbindUnit method")
 //             },
 //         }
@@ -49,13 +49,13 @@ type BindServiceMock struct {
 	BindAppFunc func(name string, bindAppForm *models.BindAppForm) (map[string]string, services.BindAppResult)
 
 	// BindUnitFunc mocks the BindUnit method.
-	BindUnitFunc func(name string, bindUnitForm *models.BindUnitForm) services.UnitBindResult
+	BindUnitFunc func(name string, bindUnitForm *models.BindUnitForm) services.BindUnitResult
 
 	// UnbindAppFunc mocks the UnbindApp method.
-	UnbindAppFunc func(name string, bindAppForm *models.BindAppForm) services.AppUnbindResult
+	UnbindAppFunc func(name string, bindAppForm *models.BindAppForm) services.UnbindAppResult
 
 	// UnbindUnitFunc mocks the UnbindUnit method.
-	UnbindUnitFunc func(name string, bindUnitForm *models.BindUnitForm) services.UnitUnbindResult
+	UnbindUnitFunc func(name string, bindUnitForm *models.BindUnitForm) services.UnbindUnitResult
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -126,7 +126,7 @@ func (mock *BindServiceMock) BindAppCalls() []struct {
 }
 
 // BindUnit calls BindUnitFunc.
-func (mock *BindServiceMock) BindUnit(name string, bindUnitForm *models.BindUnitForm) services.UnitBindResult {
+func (mock *BindServiceMock) BindUnit(name string, bindUnitForm *models.BindUnitForm) services.BindUnitResult {
 	if mock.BindUnitFunc == nil {
 		panic("BindServiceMock.BindUnitFunc: method is nil but BindService.BindUnit was just called")
 	}
@@ -161,7 +161,7 @@ func (mock *BindServiceMock) BindUnitCalls() []struct {
 }
 
 // UnbindApp calls UnbindAppFunc.
-func (mock *BindServiceMock) UnbindApp(name string, bindAppForm *models.BindAppForm) services.AppUnbindResult {
+func (mock *BindServiceMock) UnbindApp(name string, bindAppForm *models.BindAppForm) services.UnbindAppResult {
 	if mock.UnbindAppFunc == nil {
 		panic("BindServiceMock.UnbindAppFunc: method is nil but BindService.UnbindApp was just called")
 	}
@@ -196,7 +196,7 @@ func (mock *BindServiceMock) UnbindAppCalls() []struct {
 }
 
 // UnbindUnit calls UnbindUnitFunc.
-func (mock *BindServiceMock) UnbindUnit(name string, bindUnitForm *models.BindUnitForm) services.UnitUnbindResult {
+func (mock *BindServiceMock) UnbindUnit(name string, bindUnitForm *models.BindUnitForm) services.UnbindUnitResult {
 	if mock.UnbindUnitFunc == nil {
 		panic("BindServiceMock.UnbindUnitFunc: method is nil but BindService.UnbindUnit was just called")
 	}

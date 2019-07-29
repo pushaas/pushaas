@@ -234,7 +234,7 @@ var _ = Describe("BindService", func() {
 			result := bindService.UnbindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppUnbindInstanceNotFound))
+			Expect(result).To(Equal(services.UnbindAppInstanceNotFound))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 			Expect(redisClient.HGetAllCalls()).To(HaveLen(0))
 			Expect(redisClient.DelCalls()).To(HaveLen(0))
@@ -262,7 +262,7 @@ var _ = Describe("BindService", func() {
 			result := bindService.UnbindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppUnbindFailure))
+			Expect(result).To(Equal(services.UnbindAppFailure))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
 			Expect(redisClient.DelCalls()).To(HaveLen(0))
@@ -290,7 +290,7 @@ var _ = Describe("BindService", func() {
 			result := bindService.UnbindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppUnbindNotBound))
+			Expect(result).To(Equal(services.UnbindAppNotBound))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
 			Expect(redisClient.DelCalls()).To(HaveLen(0))
@@ -324,7 +324,7 @@ var _ = Describe("BindService", func() {
 			result := bindService.UnbindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppUnbindFailure))
+			Expect(result).To(Equal(services.UnbindAppFailure))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
 			Expect(redisClient.DelCalls()).To(HaveLen(1))
@@ -358,7 +358,7 @@ var _ = Describe("BindService", func() {
 			result := bindService.UnbindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppUnbindNotBound))
+			Expect(result).To(Equal(services.UnbindAppNotBound))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
 			Expect(redisClient.DelCalls()).To(HaveLen(1))
@@ -392,7 +392,7 @@ var _ = Describe("BindService", func() {
 			result := bindService.UnbindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppUnbindSuccess))
+			Expect(result).To(Equal(services.UnbindAppSuccess))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
 			Expect(redisClient.DelCalls()).To(HaveLen(1))

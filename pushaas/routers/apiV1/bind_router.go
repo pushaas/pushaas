@@ -32,34 +32,6 @@ func bindAppFormFromPostContext(c *gin.Context) *models.BindAppForm {
 	}
 }
 
-func bindAppFormFromDeleteContext(c *gin.Context) *models.BindAppForm {
-	appHost := c.PostForm("app-host")
-	appName := c.PostForm("app-name")
-
-	if appHost == "" && appName == "" {
-		vs, _ := routers.ParseBody(c)
-		appHost = vs["app-host"][0]
-		appName = vs["app-name"][0]
-	}
-
-	return &models.BindAppForm{
-		AppHost: appHost,
-		AppName: appName,
-	}
-}
-
-func bindUnitFormFromContext(c *gin.Context) *models.BindUnitForm {
-	appHost := c.PostForm("app-host")
-	appName := c.PostForm("app-name")
-	unitHost := c.PostForm("unit-host")
-
-	return &models.BindUnitForm{
-		AppHost:  appHost,
-		AppName:  appName,
-		UnitHost: unitHost,
-	}
-}
-
 func (r *bindRouter) postBindApp(c *gin.Context) {
 	name := nameFromPath(c)
 	bindAppForm := bindAppFormFromPostContext(c)
@@ -108,12 +80,23 @@ func (r *bindRouter) postBindApp(c *gin.Context) {
 	c.JSON(http.StatusCreated, envVars)
 }
 
+func bindAppFormFromDeleteContext(c *gin.Context) *models.BindAppForm {
+	vs, _ := routers.ParseBody(c)
+	appHost := vs["app-host"][0]
+	appName := vs["app-name"][0]
+
+	return &models.BindAppForm{
+		AppHost: appHost,
+		AppName: appName,
+	}
+}
+
 func (r *bindRouter) deleteBindApp(c *gin.Context) {
 	name := nameFromPath(c)
 	bindAppForm := bindAppFormFromDeleteContext(c)
 	result := r.bindService.UnbindApp(name, bindAppForm)
 
-	if result == services.AppUnbindInstanceNotFound {
+	if result == services.UnbindAppInstanceNotFound {
 		c.JSON(http.StatusNotFound, models.Error{
 			Code: models.ErrorUnbindAppNotFound,
 			Message: "Instance not found",
@@ -121,7 +104,7 @@ func (r *bindRouter) deleteBindApp(c *gin.Context) {
 		return
 	}
 
-	if result == services.AppUnbindNotBound {
+	if result == services.UnbindAppNotBound {
 		c.JSON(http.StatusNotFound, models.Error{
 			Code: models.ErrorUnbindAppNotBound,
 			Message: "Instance is not bound to app",
@@ -129,7 +112,7 @@ func (r *bindRouter) deleteBindApp(c *gin.Context) {
 		return
 	}
 
-	if result == services.AppUnbindFailure {
+	if result == services.UnbindAppFailure {
 		c.JSON(http.StatusInternalServerError, models.Error{
 			Code: models.ErrorUnbindAppFailed,
 			Message: "Failed to unbind instance from app",
@@ -140,18 +123,43 @@ func (r *bindRouter) deleteBindApp(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+func bindUnitFormFromPostContext(c *gin.Context) *models.BindUnitForm {
+	appHost := c.PostForm("app-host")
+	appName := c.PostForm("app-name")
+	unitHost := c.PostForm("unit-host")
+
+	return &models.BindUnitForm{
+		AppHost:  appHost,
+		AppName:  appName,
+		UnitHost: unitHost,
+	}
+}
+
 func (r *bindRouter) postUnitBind(c *gin.Context) {
-	// TODO implement
+	// TODO implement - check return and implement tests for service and router
 	name := nameFromPath(c)
-	bindUnitForm := bindUnitFormFromContext(c)
+	bindUnitForm := bindUnitFormFromPostContext(c)
 	result := r.bindService.BindUnit(name, bindUnitForm)
 	fmt.Println("result", result)
 }
 
+func bindUnitFormFromDeleteContext(c *gin.Context) *models.BindUnitForm {
+	vs, _ := routers.ParseBody(c)
+	appHost := vs["app-host"][0]
+	appName := vs["app-name"][0]
+	unitHost := vs["unit-host"][0]
+
+	return &models.BindUnitForm{
+		AppHost: appHost,
+		AppName: appName,
+		UnitHost: unitHost,
+	}
+}
+
 func (r *bindRouter) deleteUnitBind(c *gin.Context) {
-	// TODO implement
+	// TODO implement - check return and implement tests for service and router
 	name := nameFromPath(c)
-	bindUnitForm := bindUnitFormFromContext(c)
+	bindUnitForm := bindUnitFormFromDeleteContext(c)
 	result := r.bindService.UnbindUnit(name, bindUnitForm)
 	fmt.Println("result", result)
 }

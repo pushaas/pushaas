@@ -231,8 +231,8 @@ var _ = Describe("BindRouter", func() {
 		_ = It("returns 200 when unbinds successfully", func() {
 			// arrange
 			bindService := &mocks.BindServiceMock{
-				UnbindAppFunc: func(name string, bindAppForm *models.BindAppForm) services.AppUnbindResult {
-					return services.AppUnbindSuccess
+				UnbindAppFunc: func(name string, bindAppForm *models.BindAppForm) services.UnbindAppResult {
+					return services.UnbindAppSuccess
 				},
 			}
 
@@ -260,8 +260,8 @@ var _ = Describe("BindRouter", func() {
 			}
 
 			bindService := &mocks.BindServiceMock{
-				UnbindAppFunc: func(name string, bindAppForm *models.BindAppForm) services.AppUnbindResult {
-					return services.AppUnbindInstanceNotFound
+				UnbindAppFunc: func(name string, bindAppForm *models.BindAppForm) services.UnbindAppResult {
+					return services.UnbindAppInstanceNotFound
 				},
 			}
 
@@ -290,8 +290,8 @@ var _ = Describe("BindRouter", func() {
 			}
 
 			bindService := &mocks.BindServiceMock{
-				UnbindAppFunc: func(name string, bindAppForm *models.BindAppForm) services.AppUnbindResult {
-					return services.AppUnbindNotBound
+				UnbindAppFunc: func(name string, bindAppForm *models.BindAppForm) services.UnbindAppResult {
+					return services.UnbindAppNotBound
 				},
 			}
 
@@ -320,8 +320,8 @@ var _ = Describe("BindRouter", func() {
 			}
 
 			bindService := &mocks.BindServiceMock{
-				UnbindAppFunc: func(name string, bindAppForm *models.BindAppForm) services.AppUnbindResult {
-					return services.AppUnbindFailure
+				UnbindAppFunc: func(name string, bindAppForm *models.BindAppForm) services.UnbindAppResult {
+					return services.UnbindAppFailure
 				},
 			}
 

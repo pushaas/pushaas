@@ -179,7 +179,10 @@ func (r *resourceRouter) getInstanceStatus(c *gin.Context) {
 		when we've got the actual status
 	*/
 	if result == services.InstanceStatusFailedStatus {
-		c.Status(http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code:    models.ErrorInstanceStatusInstanceFailed,
+			Message: "Instance is in failed status",
+		})
 		return
 	}
 
@@ -202,7 +205,7 @@ func (r *resourceRouter) SetupRoutes(router gin.IRouter) {
 	router.GET("/:name/status", r.getInstanceStatus)
 }
 
-func NewResourceRouter(instanceService services.InstanceService, planService services.PlanService) routers.Router {
+func NewInstanceRouter(instanceService services.InstanceService, planService services.PlanService) routers.Router {
 	return &resourceRouter{
 		instanceService: instanceService,
 		planService:     planService,

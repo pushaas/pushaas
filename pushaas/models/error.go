@@ -28,6 +28,7 @@ const (
 
 	ErrorInstanceStatusRetrievalFailed   = 40
 	ErrorInstanceStatusRetrievalNotFound = 41
+	ErrorInstanceStatusInstanceFailed    = 42
 
 	/*
 		bind

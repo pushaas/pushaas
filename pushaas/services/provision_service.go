@@ -1,5 +1,3 @@
-//go:generate moq -out pushaas/mocks/provision_service.go -pkg mocks pushaas/services ProvisionService
-
 package services
 
 import (

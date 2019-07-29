@@ -49,29 +49,34 @@ build-client:
 ########################################
 .PHONY: test
 test:
-	@ginkgo -r -keepGoing -focus=$(FOCUS)
+	@GIN_MODE=release ginkgo -r -keepGoing -focus=$(FOCUS)
 
 .PHONY: test-watch
 test-watch:
-	@ginkgo watch -r -depth=0 -focus="${FOCUS}"
+	@GIN_MODE=release ginkgo watch -r -depth=0 -focus="${FOCUS}"
 
 .PHONY: test-coverage
 test-coverage:
-	go clean
-	rm -f ./coverage.out
-	@# produce a "coverage.out" file for each package, and one with all files concatenated
-	-@ginkgo -r -keepGoing -cover -coverprofile=coverage.out -outputdir=.
-	@# remove the individual files and leaves only the concatenated
-	for i in */**/coverage.out; do rm -f "$i"; done
-	@# remove repeated "mode"s in the file
-	grep -v "mode" coverage.out > temp_coverage.out && mv temp_coverage.out coverage.out
-	@# add one single "mode" at the beginning
-	echo "mode: set" | cat - coverage.out> temp_coverage.out && mv temp_coverage.out coverage.out
-	go tool cover -html=coverage.out
+	@go clean
+	@rm -f ./coverage.out
+	-@GIN_MODE=release ginkgo -r -keepGoing -cover -coverprofile=coverage.out -outputdir=.
+	@for i in */**/coverage.out; do rm -f "$i"; done
+	@grep -v "mode" coverage.out > temp_coverage.out && mv temp_coverage.out coverage.out
+	@echo "mode: set" | cat - coverage.out> temp_coverage.out && mv temp_coverage.out coverage.out
+	@go tool cover -html=coverage.out
 
 .PHONY: test-generate-mocks
-test-generate-mocks:
+test-generate-mocks: test-generate-pushaas-mocks test-generate-library-mocks
+
+.PHONY: test-generate-pushaas-mocks
+test-generate-pushaas-mocks:
+	@moq -out pushaas/mocks/bind_service.go -pkg mocks pushaas/services BindService
+	@moq -out pushaas/mocks/instance_service.go -pkg mocks pushaas/services InstanceService
+	@moq -out pushaas/mocks/plan_service.go -pkg mocks pushaas/services PlanService
 	@moq -out pushaas/mocks/provision_service.go -pkg mocks pushaas/services ProvisionService
+
+.PHONY: test-generate-library-mocks
+test-generate-library-mocks:
 	@moq -out pushaas/mocks/redis_client.go -pkg mocks ${GOPATH}/src/github.com/go-redis/redis UniversalClient
 
 ########################################

@@ -37,7 +37,7 @@ func Run() {
 			ctors.NewStaticRouter,
 			ctors.NewApiRootRouter,
 			ctors.NewAuthRouter,
-			ctors.NewResourceRouter,
+			ctors.NewInstanceRouter,
 			ctors.NewBindRouter,
 
 			// services

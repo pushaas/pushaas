@@ -45,7 +45,7 @@ func NewGinRouter(
 	rootRouter routers.RootRouter,
 	staticRouter routers.StaticRouter,
 	apiRootRouter routers.ApiRootRouter,
-	v1ResourceRouter apiV1.ResourceRouter,
+	v1InstanceRouter apiV1.ResourceRouter,
 	v1BindRouter apiV1.BindRouter,
 ) *gin.Engine {
 	envConfig := config.Get("env")
@@ -68,7 +68,7 @@ func NewGinRouter(
 
 		g(r, "/v1", func(r gin.IRouter) {
 			g(r, "/resources", func(r gin.IRouter) {
-				v1ResourceRouter.SetupRoutes(r)
+				v1InstanceRouter.SetupRoutes(r)
 				v1BindRouter.SetupRoutes(r)
 			})
 		})
@@ -98,8 +98,8 @@ func NewAuthRouter() apiV1.AuthRouter {
 	return apiV1.NewAuthRouter()
 }
 
-func NewResourceRouter(instanceService services.InstanceService, planService services.PlanService) apiV1.ResourceRouter {
-	return apiV1.NewResourceRouter(instanceService, planService)
+func NewInstanceRouter(instanceService services.InstanceService, planService services.PlanService) apiV1.ResourceRouter {
+	return apiV1.NewInstanceRouter(instanceService, planService)
 }
 
 func NewBindRouter(bindService services.BindService) apiV1.BindRouter {

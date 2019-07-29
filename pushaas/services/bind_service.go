@@ -13,7 +13,7 @@ import (
 )
 
 type (
-	appBindRetrievalResult int
+	AppBindRetrievalResult int
 	AppBindResult          int
 	AppUnbindResult        int
 
@@ -37,9 +37,9 @@ type (
 )
 
 const (
-	appBindRetrievalSuccess appBindRetrievalResult = iota
-	appBindRetrievalNotFound
-	appBindRetrievalFailure
+	AppBindRetrievalSuccess AppBindRetrievalResult = iota
+	AppBindRetrievalNotFound
+	AppBindRetrievalFailure
 )
 
 const (
@@ -78,7 +78,7 @@ func (s *bindService) appBindKey(instanceName, appName string) string {
 	return fmt.Sprintf("%s:%s:%s", s.bindingsKeyPrefix, instanceName, appName)
 }
 
-func (s *bindService) getAppBind(instanceName, appName string) (*models.AppBind, appBindRetrievalResult) {
+func (s *bindService) getAppBind(instanceName, appName string) (*models.AppBind, AppBindRetrievalResult) {
 	var err error
 	appBindKey := s.appBindKey(instanceName, appName)
 
@@ -87,10 +87,10 @@ func (s *bindService) getAppBind(instanceName, appName string) (*models.AppBind,
 	appBindMap, err := cmd.Result()
 	if err != nil {
 		s.logger.Error("failed to retrieve appBind", zap.Error(err), zap.String("appBindKey", appBindKey))
-		return nil, appBindRetrievalFailure
+		return nil, AppBindRetrievalFailure
 	}
 	if len(appBindMap) == 0 {
-		return nil, appBindRetrievalNotFound
+		return nil, AppBindRetrievalNotFound
 	}
 
 	// decode
@@ -98,10 +98,10 @@ func (s *bindService) getAppBind(instanceName, appName string) (*models.AppBind,
 	err = mapstructure.Decode(appBindMap, &appBind)
 	if err != nil {
 		s.logger.Error("failed to decode appBind", zap.Error(err), zap.String("instance", instanceName))
-		return nil, appBindRetrievalFailure
+		return nil, AppBindRetrievalFailure
 	}
 
-	return &appBind, appBindRetrievalSuccess
+	return &appBind, AppBindRetrievalSuccess
 }
 
 func (s *bindService) doCreateAppBind(instance *models.Instance, appBind *models.AppBind) AppBindResult {
@@ -133,10 +133,10 @@ func (s *bindService) BindApp(instanceName string, bindAppForm *models.BindAppFo
 
 	// check existing binding
 	_, resultAppBindGet := s.getAppBind(instance.Name, bindAppForm.AppName)
-	if resultAppBindGet == appBindRetrievalSuccess {
+	if resultAppBindGet == AppBindRetrievalSuccess {
 		s.logger.Error("instance already bound to app", zap.String("instanceName", instanceName), zap.Any("bindAppForm", bindAppForm))
 		return nil, AppBindAlreadyBound
-	} else if resultAppBindGet == appBindRetrievalFailure {
+	} else if resultAppBindGet == AppBindRetrievalFailure {
 		return nil, AppBindFailure
 	}
 
@@ -151,9 +151,9 @@ func (s *bindService) BindApp(instanceName string, bindAppForm *models.BindAppFo
 	// get instance variables
 	// TODO get variables from the real source
 	envVars := map[string]string{
-		"PUSHAAS_ENDPOINT": "TODO-endpoint",
-		"PUSHAAS_USERNAME": "TODO-username",
-		"PUSHAAS_PASSWORD": "TODO-password",
+		"PUSHAAS_ENDPOINT": "the-endpoint",
+		"PUSHAAS_USERNAME": "the-username",
+		"PUSHAAS_PASSWORD": "the-password",
 	}
 
 	return envVars, AppBindSuccess
@@ -186,10 +186,10 @@ func (s *bindService) UnbindApp(instanceName string, bindAppForm *models.BindApp
 
 	// check existing binding
 	_, resultAppBindGet := s.getAppBind(instance.Name, bindAppForm.AppName)
-	if resultAppBindGet == appBindRetrievalNotFound {
+	if resultAppBindGet == AppBindRetrievalNotFound {
 		s.logger.Error("instance not bound to app", zap.String("instanceName", instanceName), zap.Any("bindAppForm", bindAppForm))
 		return AppUnbindNotBound
-	} else if resultAppBindGet == appBindRetrievalFailure {
+	} else if resultAppBindGet == AppBindRetrievalFailure {
 		return AppUnbindFailure
 	}
 

@@ -50,12 +50,12 @@ func bindUnitFormFromContext(c *gin.Context) *models.BindUnitForm {
 	}
 }
 
-func (r *bindRouter) postAppBind(c *gin.Context) {
+func (r *bindRouter) postBindApp(c *gin.Context) {
 	name := nameFromPath(c)
 	bindAppForm := bindAppFormFromContext(c)
 	envVars, result := r.bindService.BindApp(name, bindAppForm)
 
-	if result == services.AppBindNotFound {
+	if result == services.BindAppNotFound {
 		c.JSON(http.StatusNotFound, models.Error{
 			Code: models.ErrorBindAppNotFound,
 			Message: "Instance not found",
@@ -63,7 +63,7 @@ func (r *bindRouter) postAppBind(c *gin.Context) {
 		return
 	}
 
-	if result == services.AppBindInstancePending {
+	if result == services.BindAppInstancePending {
 		c.JSON(http.StatusPreconditionFailed, models.Error{
 			Code: models.ErrorBindAppInstancePending,
 			Message: "Instance is in pending status",
@@ -71,7 +71,7 @@ func (r *bindRouter) postAppBind(c *gin.Context) {
 		return
 	}
 
-	if result == services.AppBindInstanceFailed {
+	if result == services.BindAppInstanceFailed {
 		c.JSON(http.StatusInternalServerError, models.Error{
 			Code: models.ErrorBindAppInstanceFailed,
 			Message: "Instance is in failed status",
@@ -79,7 +79,7 @@ func (r *bindRouter) postAppBind(c *gin.Context) {
 		return
 	}
 
-	if result == services.AppBindAlreadyBound {
+	if result == services.BindAppAlreadyBound {
 		c.JSON(http.StatusInternalServerError, models.Error{
 			Code: models.ErrorBindAppAlreadyBound,
 			Message: "Instance is already bound to app",
@@ -87,7 +87,7 @@ func (r *bindRouter) postAppBind(c *gin.Context) {
 		return
 	}
 
-	if result == services.AppBindFailure {
+	if result == services.BindAppFailure {
 		c.JSON(http.StatusInternalServerError, models.Error{
 			Code: models.ErrorBindAppFailed,
 			Message: "Failed to bind instance to app",
@@ -98,7 +98,7 @@ func (r *bindRouter) postAppBind(c *gin.Context) {
 	c.JSON(http.StatusCreated, envVars)
 }
 
-func (r *bindRouter) deleteAppBind(c *gin.Context) {
+func (r *bindRouter) deleteBindApp(c *gin.Context) {
 	name := nameFromPath(c)
 	bindAppForm := bindAppFormFromContext(c)
 	result := r.bindService.UnbindApp(name, bindAppForm)
@@ -148,8 +148,8 @@ func (r *bindRouter) deleteUnitBind(c *gin.Context) {
 
 func (r *bindRouter) SetupRoutes(router gin.IRouter) {
 	// app bind
-	router.POST("/:name/bind-app", r.postAppBind)
-	router.DELETE("/:name/bind-app", r.deleteAppBind)
+	router.POST("/:name/bind-app", r.postBindApp)
+	router.DELETE("/:name/bind-app", r.deleteBindApp)
 
 	// unit bind
 	router.POST("/:name/bind", r.postUnitBind)

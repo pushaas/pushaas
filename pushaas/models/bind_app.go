@@ -1,14 +1,14 @@
 package models
 
 type (
-	AppBind struct {
+	BindApp struct {
 		AppName    string   `json:"appName"`
 		AppHost    string   `json:"appHost"`
 	}
 )
 
-func AppBindFromForm(bindAppForm *BindAppForm) *AppBind {
-	return &AppBind{
+func BindAppFromForm(bindAppForm *BindAppForm) *BindApp {
+	return &BindApp{
 		AppName: bindAppForm.AppName,
 		AppHost: bindAppForm.AppHost,
 	}

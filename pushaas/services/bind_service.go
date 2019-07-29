@@ -13,15 +13,15 @@ import (
 )
 
 type (
-	AppBindRetrievalResult int
-	AppBindResult          int
+	BindAppRetrievalResult int
+	BindAppResult          int
 	AppUnbindResult        int
 
 	UnitBindResult   int
 	UnitUnbindResult int
 
 	BindService interface {
-		BindApp(name string, bindAppForm *models.BindAppForm) (map[string]string, AppBindResult)
+		BindApp(name string, bindAppForm *models.BindAppForm) (map[string]string, BindAppResult)
 		UnbindApp(name string, bindAppForm *models.BindAppForm) AppUnbindResult
 		BindUnit(name string, bindUnitForm *models.BindUnitForm) UnitBindResult
 		UnbindUnit(name string, bindUnitForm *models.BindUnitForm) UnitUnbindResult
@@ -37,19 +37,19 @@ type (
 )
 
 const (
-	AppBindRetrievalSuccess AppBindRetrievalResult = iota
-	AppBindRetrievalNotFound
-	AppBindRetrievalFailure
+	BindAppRetrievalSuccess BindAppRetrievalResult = iota
+	BindAppRetrievalNotFound
+	BindAppRetrievalFailure
 )
 
 const (
-	AppBindSuccess AppBindResult = iota
-	AppBindNotFound
-	AppBindAlreadyBound
-	AppBindFailure
+	BindAppSuccess BindAppResult = iota
+	BindAppNotFound
+	BindAppAlreadyBound
+	BindAppFailure
 
-	AppBindInstancePending
-	AppBindInstanceFailed
+	BindAppInstancePending
+	BindAppInstanceFailed
 )
 
 const (
@@ -74,77 +74,77 @@ const (
 //	UnitUnbindFailure
 //)
 
-func (s *bindService) appBindKey(instanceName, appName string) string {
+func (s *bindService) bindAppKey(instanceName, appName string) string {
 	return fmt.Sprintf("%s:%s:%s", s.bindingsKeyPrefix, instanceName, appName)
 }
 
-func (s *bindService) getAppBind(instanceName, appName string) (*models.AppBind, AppBindRetrievalResult) {
+func (s *bindService) getBindApp(instanceName, appName string) (*models.BindApp, BindAppRetrievalResult) {
 	var err error
-	appBindKey := s.appBindKey(instanceName, appName)
+	bindAppKey := s.bindAppKey(instanceName, appName)
 
 	// retrieve
-	cmd := s.redisClient.HGetAll(appBindKey)
-	appBindMap, err := cmd.Result()
+	cmd := s.redisClient.HGetAll(bindAppKey)
+	bindAppMap, err := cmd.Result()
 	if err != nil {
-		s.logger.Error("failed to retrieve appBind", zap.Error(err), zap.String("appBindKey", appBindKey))
-		return nil, AppBindRetrievalFailure
+		s.logger.Error("failed to retrieve bindApp", zap.Error(err), zap.String("bindAppKey", bindAppKey))
+		return nil, BindAppRetrievalFailure
 	}
-	if len(appBindMap) == 0 {
-		return nil, AppBindRetrievalNotFound
+	if len(bindAppMap) == 0 {
+		return nil, BindAppRetrievalNotFound
 	}
 
 	// decode
-	var appBind models.AppBind
-	err = mapstructure.Decode(appBindMap, &appBind)
+	var bindApp models.BindApp
+	err = mapstructure.Decode(bindAppMap, &bindApp)
 	if err != nil {
-		s.logger.Error("failed to decode appBind", zap.Error(err), zap.String("instance", instanceName))
-		return nil, AppBindRetrievalFailure
+		s.logger.Error("failed to decode bindApp", zap.Error(err), zap.String("instance", instanceName))
+		return nil, BindAppRetrievalFailure
 	}
 
-	return &appBind, AppBindRetrievalSuccess
+	return &bindApp, BindAppRetrievalSuccess
 }
 
-func (s *bindService) doCreateAppBind(instance *models.Instance, appBind *models.AppBind) AppBindResult {
-	appBindKey := s.appBindKey(instance.Name, appBind.AppName)
-	appBindMap := structs.Map(appBind)
+func (s *bindService) doCreateBindApp(instance *models.Instance, bindApp *models.BindApp) BindAppResult {
+	bindAppKey := s.bindAppKey(instance.Name, bindApp.AppName)
+	bindAppMap := structs.Map(bindApp)
 
-	err := s.redisClient.HMSet(appBindKey, appBindMap).Err()
+	err := s.redisClient.HMSet(bindAppKey, bindAppMap).Err()
 	if err != nil {
-		s.logger.Error("failed to create appBind", zap.Error(err), zap.Any("instance", instance), zap.Any("appBind", appBind))
-		return AppBindFailure
+		s.logger.Error("failed to create bindApp", zap.Error(err), zap.Any("instance", instance), zap.Any("bindApp", bindApp))
+		return BindAppFailure
 	}
-	return AppBindSuccess
+	return BindAppSuccess
 }
 
-func (s *bindService) BindApp(instanceName string, bindAppForm *models.BindAppForm) (map[string]string, AppBindResult) {
+func (s *bindService) BindApp(instanceName string, bindAppForm *models.BindAppForm) (map[string]string, BindAppResult) {
 	// check instance existence
 	instance, resultInstanceGet := s.instanceService.GetByName(instanceName)
 	if resultInstanceGet == InstanceRetrievalNotFound {
-		s.logger.Error("instance not found for appBind", zap.String("instanceName", instanceName), zap.Any("bindAppForm", bindAppForm))
-		return nil, AppBindNotFound
+		s.logger.Error("instance not found for bindApp", zap.String("instanceName", instanceName), zap.Any("bindAppForm", bindAppForm))
+		return nil, BindAppNotFound
 	}
 
 	// check instance status
 	if instance.Status == models.InstanceStatusPending {
-		return nil, AppBindInstancePending
+		return nil, BindAppInstancePending
 	} else if instance.Status == models.InstanceStatusFailed {
-		return nil, AppBindInstanceFailed
+		return nil, BindAppInstanceFailed
 	}
 
 	// check existing binding
-	_, resultAppBindGet := s.getAppBind(instance.Name, bindAppForm.AppName)
-	if resultAppBindGet == AppBindRetrievalSuccess {
+	_, resultBindAppGet := s.getBindApp(instance.Name, bindAppForm.AppName)
+	if resultBindAppGet == BindAppRetrievalSuccess {
 		s.logger.Error("instance already bound to app", zap.String("instanceName", instanceName), zap.Any("bindAppForm", bindAppForm))
-		return nil, AppBindAlreadyBound
-	} else if resultAppBindGet == AppBindRetrievalFailure {
-		return nil, AppBindFailure
+		return nil, BindAppAlreadyBound
+	} else if resultBindAppGet == BindAppRetrievalFailure {
+		return nil, BindAppFailure
 	}
 
-	appBind := models.AppBindFromForm(bindAppForm)
+	bindApp := models.BindAppFromForm(bindAppForm)
 
 	// bind
-	resultBind := s.doCreateAppBind(instance, appBind)
-	if resultBind != AppBindSuccess {
+	resultBind := s.doCreateBindApp(instance, bindApp)
+	if resultBind != BindAppSuccess {
 		return nil, resultBind
 	}
 
@@ -156,20 +156,20 @@ func (s *bindService) BindApp(instanceName string, bindAppForm *models.BindAppFo
 		"PUSHAAS_PASSWORD": "the-password",
 	}
 
-	return envVars, AppBindSuccess
+	return envVars, BindAppSuccess
 }
 
-func (s *bindService) doDeleteAppBind(instance *models.Instance, appBind *models.AppBind) AppUnbindResult {
-	appBindKey := s.appBindKey(instance.Name, appBind.AppName)
+func (s *bindService) doDeleteBindApp(instance *models.Instance, bindApp *models.BindApp) AppUnbindResult {
+	bindAppKey := s.bindAppKey(instance.Name, bindApp.AppName)
 
-	value, err := s.redisClient.Del(appBindKey).Result()
+	value, err := s.redisClient.Del(bindAppKey).Result()
 	if err != nil {
-		s.logger.Error("failed to delete appBind", zap.Error(err), zap.Any("instance", instance), zap.Any("appBind", appBind))
+		s.logger.Error("failed to delete bindApp", zap.Error(err), zap.Any("instance", instance), zap.Any("bindApp", bindApp))
 		return AppUnbindFailure
 	}
 
 	if value == 0 {
-		s.logger.Error("appBind not found to be deleted", zap.String("name", instance.Name))
+		s.logger.Error("bindApp not found to be deleted", zap.String("name", instance.Name))
 		return AppUnbindNotBound
 	}
 
@@ -185,18 +185,18 @@ func (s *bindService) UnbindApp(instanceName string, bindAppForm *models.BindApp
 	}
 
 	// check existing binding
-	_, resultAppBindGet := s.getAppBind(instance.Name, bindAppForm.AppName)
-	if resultAppBindGet == AppBindRetrievalNotFound {
+	_, resultBindAppGet := s.getBindApp(instance.Name, bindAppForm.AppName)
+	if resultBindAppGet == BindAppRetrievalNotFound {
 		s.logger.Error("instance not bound to app", zap.String("instanceName", instanceName), zap.Any("bindAppForm", bindAppForm))
 		return AppUnbindNotBound
-	} else if resultAppBindGet == AppBindRetrievalFailure {
+	} else if resultBindAppGet == BindAppRetrievalFailure {
 		return AppUnbindFailure
 	}
 
-	appBind := models.AppBindFromForm(bindAppForm)
+	bindApp := models.BindAppFromForm(bindAppForm)
 
 	// unbind
-	return s.doDeleteAppBind(instance, appBind)
+	return s.doDeleteBindApp(instance, bindApp)
 }
 
 func (s *bindService) BindUnit(name string, bindUnitForm *models.BindUnitForm) UnitBindResult {

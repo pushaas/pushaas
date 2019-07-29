@@ -26,7 +26,7 @@ var _ services.BindService = &BindServiceMock{}
 //
 //         // make and configure a mocked BindService
 //         mockedBindService := &BindServiceMock{
-//             BindAppFunc: func(name string, bindAppForm *models.BindAppForm) (map[string]string, services.AppBindResult) {
+//             BindAppFunc: func(name string, bindAppForm *models.BindAppForm) (map[string]string, services.BindAppResult) {
 // 	               panic("mock out the BindApp method")
 //             },
 //             BindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.UnitBindResult {
@@ -46,7 +46,7 @@ var _ services.BindService = &BindServiceMock{}
 //     }
 type BindServiceMock struct {
 	// BindAppFunc mocks the BindApp method.
-	BindAppFunc func(name string, bindAppForm *models.BindAppForm) (map[string]string, services.AppBindResult)
+	BindAppFunc func(name string, bindAppForm *models.BindAppForm) (map[string]string, services.BindAppResult)
 
 	// BindUnitFunc mocks the BindUnit method.
 	BindUnitFunc func(name string, bindUnitForm *models.BindUnitForm) services.UnitBindResult
@@ -91,7 +91,7 @@ type BindServiceMock struct {
 }
 
 // BindApp calls BindAppFunc.
-func (mock *BindServiceMock) BindApp(name string, bindAppForm *models.BindAppForm) (map[string]string, services.AppBindResult) {
+func (mock *BindServiceMock) BindApp(name string, bindAppForm *models.BindAppForm) (map[string]string, services.BindAppResult) {
 	if mock.BindAppFunc == nil {
 		panic("BindServiceMock.BindAppFunc: method is nil but BindService.BindApp was just called")
 	}

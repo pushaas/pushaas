@@ -16,7 +16,7 @@ import (
 var _ = Describe("BindService", func() {
 	config := viper.New()
 	instanceName := "instance-1"
-	appBindForm := &models.BindAppForm{}
+	bindAppForm := &models.BindAppForm{}
 	appName := "app-1"
 	appHost := "app-host-1"
 
@@ -33,10 +33,10 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			varsMap, result := bindService.BindApp(instanceName, appBindForm)
+			varsMap, result := bindService.BindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppBindNotFound))
+			Expect(result).To(Equal(services.BindAppNotFound))
 			Expect(varsMap).To(Equal(expected))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 		})
@@ -56,10 +56,10 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			varsMap, result := bindService.BindApp(instanceName, appBindForm)
+			varsMap, result := bindService.BindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppBindInstancePending))
+			Expect(result).To(Equal(services.BindAppInstancePending))
 			Expect(varsMap).To(Equal(expected))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 		})
@@ -79,10 +79,10 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			varsMap, result := bindService.BindApp(instanceName, appBindForm)
+			varsMap, result := bindService.BindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppBindInstanceFailed))
+			Expect(result).To(Equal(services.BindAppInstanceFailed))
 			Expect(varsMap).To(Equal(expected))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 			Expect(redisClient.HGetAllCalls()).To(HaveLen(0))
@@ -111,10 +111,10 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			varsMap, result := bindService.BindApp(instanceName, appBindForm)
+			varsMap, result := bindService.BindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppBindAlreadyBound))
+			Expect(result).To(Equal(services.BindAppAlreadyBound))
 			Expect(varsMap).To(Equal(expected))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
@@ -140,10 +140,10 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			varsMap, result := bindService.BindApp(instanceName, appBindForm)
+			varsMap, result := bindService.BindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppBindFailure))
+			Expect(result).To(Equal(services.BindAppFailure))
 			Expect(varsMap).To(Equal(expected))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
@@ -172,10 +172,10 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			varsMap, result := bindService.BindApp(instanceName, appBindForm)
+			varsMap, result := bindService.BindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppBindFailure))
+			Expect(result).To(Equal(services.BindAppFailure))
 			Expect(varsMap).To(Equal(expected))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
@@ -208,10 +208,10 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			varsMap, result := bindService.BindApp(instanceName, appBindForm)
+			varsMap, result := bindService.BindApp(instanceName, bindAppForm)
 
 			// assert
-			Expect(result).To(Equal(services.AppBindSuccess))
+			Expect(result).To(Equal(services.BindAppSuccess))
 			Expect(varsMap).To(Equal(expected))
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
@@ -231,7 +231,7 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			result := bindService.UnbindApp(instanceName, appBindForm)
+			result := bindService.UnbindApp(instanceName, bindAppForm)
 
 			// assert
 			Expect(result).To(Equal(services.AppUnbindInstanceNotFound))
@@ -259,7 +259,7 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			result := bindService.UnbindApp(instanceName, appBindForm)
+			result := bindService.UnbindApp(instanceName, bindAppForm)
 
 			// assert
 			Expect(result).To(Equal(services.AppUnbindFailure))
@@ -287,7 +287,7 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			result := bindService.UnbindApp(instanceName, appBindForm)
+			result := bindService.UnbindApp(instanceName, bindAppForm)
 
 			// assert
 			Expect(result).To(Equal(services.AppUnbindNotBound))
@@ -321,7 +321,7 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			result := bindService.UnbindApp(instanceName, appBindForm)
+			result := bindService.UnbindApp(instanceName, bindAppForm)
 
 			// assert
 			Expect(result).To(Equal(services.AppUnbindFailure))
@@ -355,7 +355,7 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			result := bindService.UnbindApp(instanceName, appBindForm)
+			result := bindService.UnbindApp(instanceName, bindAppForm)
 
 			// assert
 			Expect(result).To(Equal(services.AppUnbindNotBound))
@@ -389,7 +389,7 @@ var _ = Describe("BindService", func() {
 			bindService := services.NewBindService(config, logger, redisClient, instanceService)
 
 			// act
-			result := bindService.UnbindApp(instanceName, appBindForm)
+			result := bindService.UnbindApp(instanceName, bindAppForm)
 
 			// assert
 			Expect(result).To(Equal(services.AppUnbindSuccess))

@@ -22,7 +22,17 @@ type (
 	}
 )
 
-func bindAppFormFromContext(c *gin.Context) *models.BindAppForm {
+func bindAppFormFromPostContext(c *gin.Context) *models.BindAppForm {
+	appHost := c.PostForm("app-host")
+	appName := c.PostForm("app-name")
+
+	return &models.BindAppForm{
+		AppHost: appHost,
+		AppName: appName,
+	}
+}
+
+func bindAppFormFromDeleteContext(c *gin.Context) *models.BindAppForm {
 	appHost := c.PostForm("app-host")
 	appName := c.PostForm("app-name")
 
@@ -52,7 +62,7 @@ func bindUnitFormFromContext(c *gin.Context) *models.BindUnitForm {
 
 func (r *bindRouter) postBindApp(c *gin.Context) {
 	name := nameFromPath(c)
-	bindAppForm := bindAppFormFromContext(c)
+	bindAppForm := bindAppFormFromPostContext(c)
 	envVars, result := r.bindService.BindApp(name, bindAppForm)
 
 	if result == services.BindAppNotFound {
@@ -100,7 +110,7 @@ func (r *bindRouter) postBindApp(c *gin.Context) {
 
 func (r *bindRouter) deleteBindApp(c *gin.Context) {
 	name := nameFromPath(c)
-	bindAppForm := bindAppFormFromContext(c)
+	bindAppForm := bindAppFormFromDeleteContext(c)
 	result := r.bindService.UnbindApp(name, bindAppForm)
 
 	if result == services.AppUnbindInstanceNotFound {

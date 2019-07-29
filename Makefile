@@ -16,6 +16,9 @@ IMAGE_TAGGED_DEV := $(IMAGE_DEV):$(TAG)
 .PHONY: setup
 setup:
 	@go get github.com/oxequa/realize
+	@go get github.com/onsi/ginkgo/ginkgo
+	@go get github.com/onsi/gomega/...
+	@go get github.com/matryer/moq
 
 .PHONY: clean
 clean:
@@ -40,6 +43,41 @@ watch: kill
 .PHONY: build-client
 build-client:
 	@cd client && yarn build
+
+########################################
+# test
+########################################
+.PHONY: test
+test:
+	@GIN_MODE=release ginkgo -r -keepGoing -focus=$(FOCUS)
+
+.PHONY: test-watch
+test-watch:
+	@GIN_MODE=release ginkgo watch -r -depth=0 -focus="${FOCUS}"
+
+.PHONY: test-coverage
+test-coverage:
+	@go clean
+	@rm -f ./coverage.out
+	-@GIN_MODE=release ginkgo -r -keepGoing -cover -coverprofile=coverage.out -outputdir=.
+	@for i in */**/coverage.out; do rm -f "$i"; done
+	@grep -v "mode" coverage.out > temp_coverage.out && mv temp_coverage.out coverage.out
+	@echo "mode: set" | cat - coverage.out> temp_coverage.out && mv temp_coverage.out coverage.out
+	@go tool cover -html=coverage.out
+
+.PHONY: test-generate-mocks
+test-generate-mocks: test-generate-pushaas-mocks test-generate-library-mocks
+
+.PHONY: test-generate-pushaas-mocks
+test-generate-pushaas-mocks:
+	@moq -out pushaas/mocks/bind_service.go -pkg mocks pushaas/services BindService
+	@moq -out pushaas/mocks/instance_service.go -pkg mocks pushaas/services InstanceService
+	@moq -out pushaas/mocks/plan_service.go -pkg mocks pushaas/services PlanService
+	@moq -out pushaas/mocks/provision_service.go -pkg mocks pushaas/services ProvisionService
+
+.PHONY: test-generate-library-mocks
+test-generate-library-mocks:
+	@moq -out pushaas/mocks/redis_client.go -pkg mocks ${GOPATH}/src/github.com/go-redis/redis UniversalClient
 
 ########################################
 # docker
@@ -108,11 +146,3 @@ services-up:
 .PHONY: services-down
 services-down:
 	@docker-compose down --remove-orphans
-
-.PHONY: mongo-express
-mongo-express:
-	docker run -it --rm \
-		--network $(NETWORK) \
-		--name mongo-express \
-		-p 8081:8081 \
-		mongo-express

@@ -3,6 +3,8 @@ package provisioners
 import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+
+	"github.com/rafaeleyng/pushaas/pushaas/models"
 )
 
 //import "github.com/aws/aws-sdk-go/service/ecs"
@@ -14,13 +16,12 @@ type (
 	}
 )
 
-func (p awsEcsProvisioner) Provision(instanceName string) error {
-	panic("implement me")
-
+func (p awsEcsProvisioner) Provision(instance *models.Instance) ProvisionResult {
+	return ProvisionResultSuccess
 }
 
-func (p awsEcsProvisioner) Deprovision(instanceName string) error {
-	panic("implement me")
+func (p awsEcsProvisioner) Deprovision(instance *models.Instance) DeprovisionResult {
+	return DeprovisionResultSuccess
 }
 
 func NewAwsEcsProvisioner(config *viper.Viper, logger *zap.Logger) Provisioner {

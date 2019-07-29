@@ -22,7 +22,17 @@ type (
 	}
 )
 
-func bindAppFormFromContext(c *gin.Context) *models.BindAppForm {
+func bindAppFormFromPostContext(c *gin.Context) *models.BindAppForm {
+	appHost := c.PostForm("app-host")
+	appName := c.PostForm("app-name")
+
+	return &models.BindAppForm{
+		AppHost: appHost,
+		AppName: appName,
+	}
+}
+
+func bindAppFormFromDeleteContext(c *gin.Context) *models.BindAppForm {
 	appHost := c.PostForm("app-host")
 	appName := c.PostForm("app-name")
 
@@ -50,41 +60,47 @@ func bindUnitFormFromContext(c *gin.Context) *models.BindUnitForm {
 	}
 }
 
-func (r *bindRouter) postAppBind(c *gin.Context) {
+func (r *bindRouter) postBindApp(c *gin.Context) {
 	name := nameFromPath(c)
-	bindAppForm := bindAppFormFromContext(c)
+	bindAppForm := bindAppFormFromPostContext(c)
 	envVars, result := r.bindService.BindApp(name, bindAppForm)
 
-	if result == services.AppBindInstanceNotFound {
-		c.Status(http.StatusNotFound)
-		return
-	}
-
-	if result == services.AppBindInstancePending {
-		c.Status(http.StatusPreconditionFailed)
-		return
-	}
-
-	if result == services.AppBindInstanceFailed {
-		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
-			Message: "instance failed",
+	if result == services.BindAppNotFound {
+		c.JSON(http.StatusNotFound, models.Error{
+			Code: models.ErrorBindAppNotFound,
+			Message: "Instance not found",
 		})
 		return
 	}
 
-	if result == services.AppBindAlreadyBound {
-		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
-			Message: "already bound",
+	if result == services.BindAppInstancePending {
+		c.JSON(http.StatusPreconditionFailed, models.Error{
+			Code: models.ErrorBindAppInstancePending,
+			Message: "Instance is in pending status",
 		})
 		return
 	}
 
-	if result == services.AppBindFailure {
+	if result == services.BindAppInstanceFailed {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
-			Message: "failure to bind",
+			Code: models.ErrorBindAppInstanceFailed,
+			Message: "Instance is in failed status",
+		})
+		return
+	}
+
+	if result == services.BindAppAlreadyBound {
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code: models.ErrorBindAppAlreadyBound,
+			Message: "Instance is already bound to app",
+		})
+		return
+	}
+
+	if result == services.BindAppFailure {
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code: models.ErrorBindAppFailed,
+			Message: "Failed to bind instance to app",
 		})
 		return
 	}
@@ -92,28 +108,31 @@ func (r *bindRouter) postAppBind(c *gin.Context) {
 	c.JSON(http.StatusCreated, envVars)
 }
 
-func (r *bindRouter) deleteAppBind(c *gin.Context) {
+func (r *bindRouter) deleteBindApp(c *gin.Context) {
 	name := nameFromPath(c)
-	bindAppForm := bindAppFormFromContext(c)
+	bindAppForm := bindAppFormFromDeleteContext(c)
 	result := r.bindService.UnbindApp(name, bindAppForm)
 
 	if result == services.AppUnbindInstanceNotFound {
-		c.Status(http.StatusNotFound)
+		c.JSON(http.StatusNotFound, models.Error{
+			Code: models.ErrorUnbindAppNotFound,
+			Message: "Instance not found",
+		})
 		return
 	}
 
 	if result == services.AppUnbindNotBound {
-		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
-			Message: "not bound",
+		c.JSON(http.StatusNotFound, models.Error{
+			Code: models.ErrorUnbindAppNotBound,
+			Message: "Instance is not bound to app",
 		})
 		return
 	}
 
 	if result == services.AppUnbindFailure {
 		c.JSON(http.StatusInternalServerError, models.Error{
-			// TODO add remaining fields
-			Message: "failure to unbind",
+			Code: models.ErrorUnbindAppFailed,
+			Message: "Failed to unbind instance from app",
 		})
 		return
 	}
@@ -139,8 +158,8 @@ func (r *bindRouter) deleteUnitBind(c *gin.Context) {
 
 func (r *bindRouter) SetupRoutes(router gin.IRouter) {
 	// app bind
-	router.POST("/:name/bind-app", r.postAppBind)
-	router.DELETE("/:name/bind-app", r.deleteAppBind)
+	router.POST("/:name/bind-app", r.postBindApp)
+	router.DELETE("/:name/bind-app", r.deleteBindApp)
 
 	// unit bind
 	router.POST("/:name/bind", r.postUnitBind)

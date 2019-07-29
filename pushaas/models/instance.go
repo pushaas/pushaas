@@ -1,31 +1,49 @@
 package models
 
 import (
-	"github.com/go-bongo/bongo"
+	"encoding/json"
+)
+
+const (
+	InstanceStatusPending = InstanceStatus("pending")
+	InstanceStatusRunning = InstanceStatus("running")
+	InstanceStatusFailed  = InstanceStatus("failed")
 )
 
 type (
 	InstanceStatus string
 
-	InstanceBinding struct {
-		AppName    string   `json:"appName"`
-		AppHost    string   `json:"appHost"`
-		UnitsHosts []string `json:"unitsHosts"`
-	}
+	//InstanceBinding struct {
+	//	AppName    string   `json:"appName"`
+	//	AppHost    string   `json:"appHost"`
+	//	// TODO
+	//	//UnitsHosts []string `json:"unitsHosts"`
+	//}
 
 	Instance struct {
-		bongo.DocumentBase `bson:",inline"`
 		Name               string            `json:"name"`
 		Plan               string            `json:"plan"`
 		Team               string            `json:"team"`
 		User               string            `json:"user"`
 		Status             InstanceStatus    `json:"status"`
-		Bindings           []InstanceBinding `json:"bindings"`
+		// TODO
+		//Bindings           []InstanceBinding `json:"bindings"`
 	}
 )
 
-const (
-	InstanceStatusRunning = InstanceStatus("running")
-	InstanceStatusPending = InstanceStatus("pending")
-	InstanceStatusFailed  = InstanceStatus("failed")
-)
+func (i InstanceStatus) MarshalBinary() ([]byte, error) {
+	return []byte(i), nil
+}
+
+func (i InstanceStatus) UnmarshalBinary(data []byte) error{
+	return json.Unmarshal(data, i)
+}
+
+func InstanceFromInstanceForm(instanceForm *InstanceForm) *Instance {
+	return &Instance{
+		Name: instanceForm.Name,
+		Plan: instanceForm.Plan,
+		Team: instanceForm.Team,
+		User: instanceForm.User,
+	}
+}

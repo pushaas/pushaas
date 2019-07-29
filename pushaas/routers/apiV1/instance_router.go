@@ -54,30 +54,61 @@ func (r *resourceRouter) getPlans(c *gin.Context) {
 	c.JSON(http.StatusOK, plans)
 }
 
+func (r *resourceRouter) getInstance(c *gin.Context) {
+	name := nameFromPath(c)
+	instance, result := r.instanceService.GetByName(name)
+
+	if result == services.InstanceRetrievalNotFound {
+		c.JSON(http.StatusNotFound, models.Error{
+			Code:    models.ErrorInstanceRetrievalNotFound,
+			Message: "Instance not found",
+		})
+		return
+	}
+
+	if result == services.InstanceRetrievalFailure {
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code:    models.ErrorInstanceRetrievalFailed,
+			Message: "Failed to retrieve instance",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, instance)
+}
+
 func (r *resourceRouter) postInstance(c *gin.Context) {
 	instanceForm := instanceFormFromContext(c)
 	result := r.instanceService.Create(instanceForm)
 
-	if result == services.InstanceCreationFailure {
-		c.JSON(http.StatusInternalServerError, models.Error{
-			Code:    models.ErrorInstanceCreateFailed,
-			Message: "failed to create",
-		})
-		return
-	}
-
 	if result == services.InstanceCreationAlreadyExist {
 		c.JSON(http.StatusConflict, models.Error{
 			Code:    models.ErrorInstanceCreateAlreadyExists,
-			Message: "already exists",
+			Message: "An instance with this name already exists",
 		})
 		return
 	}
 
-	if result == services.InstanceCreationInvalidPlan {
+	if result == services.InstanceCreationInvalidData {
 		c.JSON(http.StatusBadRequest, models.Error{
-			Code:    models.ErrorInstanceCreateInvalidPlan,
-			Message: "invalid plan",
+			Code:    models.ErrorInstanceCreateInvalidData,
+			Message: "Invalid instance data",
+		})
+		return
+	}
+
+	if result == services.InstanceCreationFailure {
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code:    models.ErrorInstanceCreateFailed,
+			Message: "Failed to create instance",
+		})
+		return
+	}
+
+	if result == services.InstanceCreationProvisionFailure {
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code:    models.ErrorInstanceCreateDispatchProvisionFailed,
+			Message: "Instance created, but unable to dispatch provision. Please remove it manually",
 		})
 		return
 	}
@@ -85,20 +116,8 @@ func (r *resourceRouter) postInstance(c *gin.Context) {
 	c.Status(http.StatusCreated)
 }
 
-func (r *resourceRouter) getInstance(c *gin.Context) {
-	name := nameFromPath(c)
-	instance, result := r.instanceService.GetByName(name)
-
-	if result == services.InstanceRetrievalNotFound {
-		c.Status(http.StatusNotFound)
-		return
-	}
-
-	c.JSON(http.StatusOK, []models.Instance{*instance})
-}
-
 func (r *resourceRouter) putInstance(c *gin.Context) {
-	// this endpoint is optional, we return 404 to signal that to Tsuru
+	// this endpoint is optional, we return 404 to signal Tsuru that is not implemented
 	c.Status(http.StatusNotFound)
 }
 
@@ -106,16 +125,27 @@ func (r *resourceRouter) deleteInstance(c *gin.Context) {
 	name := nameFromPath(c)
 	result := r.instanceService.Delete(name)
 
-	if result == services.InstanceDeletionFailure {
-		c.JSON(http.StatusInternalServerError, models.Error{
-			Code:    models.ErrorInstanceDeleteFailed,
-			Message: "failed to delete",
+	if result == services.InstanceDeletionNotFound {
+		c.JSON(http.StatusNotFound, models.Error{
+			Code:    models.ErrorInstanceDeleteNotFound,
+			Message: "Instance not found",
 		})
 		return
 	}
 
-	if result == services.InstanceDeletionNotFound {
-		c.Status(http.StatusNotFound)
+	if result == services.InstanceDeletionFailure {
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code:    models.ErrorInstanceDeleteFailed,
+			Message: "Failed to delete instance",
+		})
+		return
+	}
+
+	if result == services.InstanceDeletionDeprovisionFailure {
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code:    models.ErrorInstanceDeleteDispatchDeprovisionFailed,
+			Message: "Instance deleted, but unable to dispatch deprovision. Please deprovision it manually",
+		})
 		return
 	}
 
@@ -126,18 +156,38 @@ func (r *resourceRouter) getInstanceStatus(c *gin.Context) {
 	name := nameFromPath(c)
 	result := r.instanceService.GetStatusByName(name)
 
-	if result == services.InstanceStatusPending {
-		c.Status(http.StatusAccepted)
-		return
-	}
-
+	/*
+		when we could not get the actual status
+	 */
 	if result == services.InstanceStatusNotFound {
-		c.Status(http.StatusNotFound)
+		c.JSON(http.StatusNotFound, models.Error{
+			Code:    models.ErrorInstanceStatusRetrievalNotFound,
+			Message: "Instance not found",
+		})
 		return
 	}
 
 	if result == services.InstanceStatusFailure {
-		c.Status(http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code:    models.ErrorInstanceStatusRetrievalFailed,
+			Message: "Failed to retrieve instance status",
+		})
+		return
+	}
+
+	/*
+		when we've got the actual status
+	*/
+	if result == services.InstanceStatusFailedStatus {
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code:    models.ErrorInstanceStatusInstanceFailed,
+			Message: "Instance is in failed status",
+		})
+		return
+	}
+
+	if result == services.InstanceStatusPendingStatus {
+		c.Status(http.StatusAccepted)
 		return
 	}
 
@@ -155,7 +205,7 @@ func (r *resourceRouter) SetupRoutes(router gin.IRouter) {
 	router.GET("/:name/status", r.getInstanceStatus)
 }
 
-func NewResourceRouter(instanceService services.InstanceService, planService services.PlanService) routers.Router {
+func NewInstanceRouter(instanceService services.InstanceService, planService services.PlanService) routers.Router {
 	return &resourceRouter{
 		instanceService: instanceService,
 		planService:     planService,

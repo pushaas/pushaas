@@ -1,2 +1,0 @@
-mongodb:
-  url: mongodb://pushaas-mongo.tsuru:27017

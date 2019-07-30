@@ -17,6 +17,7 @@ var _ = Describe("BindService", func() {
 	config := viper.New()
 	instanceName := "instance-1"
 	bindAppForm := &models.BindAppForm{}
+	bindUnitForm := &models.BindUnitForm{}
 	appName := "app-1"
 	appHost := "app-host-1"
 
@@ -396,6 +397,236 @@ var _ = Describe("BindService", func() {
 			Expect(instanceService.GetByNameCalls()).To(HaveLen(1))
 			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
 			Expect(redisClient.DelCalls()).To(HaveLen(1))
+		})
+	})
+
+	_ = Describe("BindUnit", func() {
+		_ = It("indicates when fails to check existing app bind", func() {
+			// arrange
+			redisClient := &mocks.UniversalClientMock{
+				HGetAllFunc: func(key string) *redis.StringStringMapCmd {
+					return redis.NewStringStringMapResult(nil, errors.New("some error"))
+				},
+			}
+			instanceService := &mocks.InstanceServiceMock{}
+			bindService := services.NewBindService(config, logger, redisClient, instanceService)
+
+			// act
+			result := bindService.BindUnit(instanceName, bindUnitForm)
+
+			// assert
+			Expect(result).To(Equal(services.BindUnitFailure))
+			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
+			Expect(redisClient.SAddCalls()).To(HaveLen(0))
+		})
+
+		_ = It("indicates when app bind is not found", func() {
+			// arrange
+			redisClient := &mocks.UniversalClientMock{
+				HGetAllFunc: func(key string) *redis.StringStringMapCmd {
+					return redis.NewStringStringMapResult(nil, nil)
+				},
+			}
+			instanceService := &mocks.InstanceServiceMock{}
+			bindService := services.NewBindService(config, logger, redisClient, instanceService)
+
+			// act
+			result := bindService.BindUnit(instanceName, bindUnitForm)
+
+			// assert
+			Expect(result).To(Equal(services.BindUnitAppNotBound))
+			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
+			Expect(redisClient.SAddCalls()).To(HaveLen(0))
+		})
+
+		_ = It("indicates when fails to bind unit", func() {
+			// arrange
+			redisClient := &mocks.UniversalClientMock{
+				HGetAllFunc: func(key string) *redis.StringStringMapCmd {
+					return redis.NewStringStringMapResult(map[string]string{
+						"AppName": appName,
+						"AppHost": appHost,
+					}, nil)
+				},
+				SAddFunc: func(key string, members ...interface{}) *redis.IntCmd {
+					return redis.NewIntResult(0, errors.New("some error"))
+				},
+			}
+			instanceService := &mocks.InstanceServiceMock{}
+			bindService := services.NewBindService(config, logger, redisClient, instanceService)
+
+			// act
+			result := bindService.BindUnit(instanceName, bindUnitForm)
+
+			// assert
+			Expect(result).To(Equal(services.BindUnitFailure))
+			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
+			Expect(redisClient.SAddCalls()).To(HaveLen(1))
+		})
+
+		_ = It("indicates when unit is already bound", func() {
+			// arrange
+			redisClient := &mocks.UniversalClientMock{
+				HGetAllFunc: func(key string) *redis.StringStringMapCmd {
+					return redis.NewStringStringMapResult(map[string]string{
+						"AppName": appName,
+						"AppHost": appHost,
+					}, nil)
+				},
+				SAddFunc: func(key string, members ...interface{}) *redis.IntCmd {
+					return redis.NewIntResult(0, nil)
+				},
+			}
+			instanceService := &mocks.InstanceServiceMock{}
+			bindService := services.NewBindService(config, logger, redisClient, instanceService)
+
+			// act
+			result := bindService.BindUnit(instanceName, bindUnitForm)
+
+			// assert
+			Expect(result).To(Equal(services.BindUnitAlreadyBound))
+			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
+			Expect(redisClient.SAddCalls()).To(HaveLen(1))
+		})
+
+		_ = It("indicates when binds unit successfully", func() {
+			// arrange
+			redisClient := &mocks.UniversalClientMock{
+				HGetAllFunc: func(key string) *redis.StringStringMapCmd {
+					return redis.NewStringStringMapResult(map[string]string{
+						"AppName": appName,
+						"AppHost": appHost,
+					}, nil)
+				},
+				SAddFunc: func(key string, members ...interface{}) *redis.IntCmd {
+					return redis.NewIntResult(1, nil)
+				},
+			}
+			instanceService := &mocks.InstanceServiceMock{}
+			bindService := services.NewBindService(config, logger, redisClient, instanceService)
+
+			// act
+			result := bindService.BindUnit(instanceName, bindUnitForm)
+
+			// assert
+			Expect(result).To(Equal(services.BindUnitSuccess))
+			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
+			Expect(redisClient.SAddCalls()).To(HaveLen(1))
+		})
+	})
+
+	_ = Describe("UnbindUnit", func() {
+		_ = It("indicates when fails to check existing app bind", func() {
+			// arrange
+			redisClient := &mocks.UniversalClientMock{
+				HGetAllFunc: func(key string) *redis.StringStringMapCmd {
+					return redis.NewStringStringMapResult(nil, errors.New("some error"))
+				},
+			}
+			instanceService := &mocks.InstanceServiceMock{}
+			bindService := services.NewBindService(config, logger, redisClient, instanceService)
+
+			// act
+			result := bindService.UnbindUnit(instanceName, bindUnitForm)
+
+			// assert
+			Expect(result).To(Equal(services.UnbindUnitFailure))
+			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
+			Expect(redisClient.SRemCalls()).To(HaveLen(0))
+		})
+
+		_ = It("indicates when app bind is not found", func() {
+			// arrange
+			redisClient := &mocks.UniversalClientMock{
+				HGetAllFunc: func(key string) *redis.StringStringMapCmd {
+					return redis.NewStringStringMapResult(nil, nil)
+				},
+			}
+			instanceService := &mocks.InstanceServiceMock{}
+			bindService := services.NewBindService(config, logger, redisClient, instanceService)
+
+			// act
+			result := bindService.UnbindUnit(instanceName, bindUnitForm)
+
+			// assert
+			Expect(result).To(Equal(services.UnbindUnitAppNotBound))
+			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
+			Expect(redisClient.SRemCalls()).To(HaveLen(0))
+		})
+
+		_ = It("indicates when fails to unbind unit", func() {
+			// arrange
+			redisClient := &mocks.UniversalClientMock{
+				HGetAllFunc: func(key string) *redis.StringStringMapCmd {
+					return redis.NewStringStringMapResult(map[string]string{
+						"AppName": appName,
+						"AppHost": appHost,
+					}, nil)
+				},
+				SRemFunc: func(key string, members ...interface{}) *redis.IntCmd {
+					return redis.NewIntResult(0, errors.New("some error"))
+				},
+			}
+			instanceService := &mocks.InstanceServiceMock{}
+			bindService := services.NewBindService(config, logger, redisClient, instanceService)
+
+			// act
+			result := bindService.UnbindUnit(instanceName, bindUnitForm)
+
+			// assert
+			Expect(result).To(Equal(services.UnbindUnitFailure))
+			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
+			Expect(redisClient.SRemCalls()).To(HaveLen(1))
+		})
+
+		_ = It("indicates when unit is not bound", func() {
+			// arrange
+			redisClient := &mocks.UniversalClientMock{
+				HGetAllFunc: func(key string) *redis.StringStringMapCmd {
+					return redis.NewStringStringMapResult(map[string]string{
+						"AppName": appName,
+						"AppHost": appHost,
+					}, nil)
+				},
+				SRemFunc: func(key string, members ...interface{}) *redis.IntCmd {
+					return redis.NewIntResult(0, nil)
+				},
+			}
+			instanceService := &mocks.InstanceServiceMock{}
+			bindService := services.NewBindService(config, logger, redisClient, instanceService)
+
+			// act
+			result := bindService.UnbindUnit(instanceName, bindUnitForm)
+
+			// assert
+			Expect(result).To(Equal(services.UnbindUnitNotBound))
+			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
+			Expect(redisClient.SRemCalls()).To(HaveLen(1))
+		})
+
+		_ = It("indicates when unbinds unit successfully", func() {
+			// arrange
+			redisClient := &mocks.UniversalClientMock{
+				HGetAllFunc: func(key string) *redis.StringStringMapCmd {
+					return redis.NewStringStringMapResult(map[string]string{
+						"AppName": appName,
+						"AppHost": appHost,
+					}, nil)
+				},
+				SRemFunc: func(key string, members ...interface{}) *redis.IntCmd {
+					return redis.NewIntResult(1, nil)
+				},
+			}
+			instanceService := &mocks.InstanceServiceMock{}
+			bindService := services.NewBindService(config, logger, redisClient, instanceService)
+
+			// act
+			result := bindService.UnbindUnit(instanceName, bindUnitForm)
+
+			// assert
+			Expect(result).To(Equal(services.UnbindUnitSuccess))
+			Expect(redisClient.HGetAllCalls()).To(HaveLen(1))
+			Expect(redisClient.SRemCalls()).To(HaveLen(1))
 		})
 	})
 })

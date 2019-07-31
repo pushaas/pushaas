@@ -1,7 +1,6 @@
 package apiV1
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -136,11 +135,35 @@ func bindUnitFormFromPostContext(c *gin.Context) *models.BindUnitForm {
 }
 
 func (r *bindRouter) postUnitBind(c *gin.Context) {
-	// TODO implement - check return and implement tests for service and router
 	name := nameFromPath(c)
 	bindUnitForm := bindUnitFormFromPostContext(c)
 	result := r.bindService.BindUnit(name, bindUnitForm)
-	fmt.Println("result", result)
+
+	if result == services.BindUnitFailure {
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code: models.ErrorBindUnitFailed,
+			Message: "Failed to bind unit to service",
+		})
+		return
+	}
+
+	if result == services.BindUnitAppNotBound {
+		c.JSON(http.StatusNotFound, models.Error{
+			Code: models.ErrorBindUnitAppNotBound,
+			Message: "App is not bound to service, could not bind unit",
+		})
+		return
+	}
+
+	if result == services.BindUnitAlreadyBound {
+		c.JSON(http.StatusBadRequest, models.Error{
+			Code: models.ErrorBindUnitAlreadyBound,
+			Message: "Unit is already bound to service",
+		})
+		return
+	}
+
+	c.Status(http.StatusCreated)
 }
 
 func bindUnitFormFromDeleteContext(c *gin.Context) *models.BindUnitForm {
@@ -157,11 +180,35 @@ func bindUnitFormFromDeleteContext(c *gin.Context) *models.BindUnitForm {
 }
 
 func (r *bindRouter) deleteUnitBind(c *gin.Context) {
-	// TODO implement - check return and implement tests for service and router
 	name := nameFromPath(c)
 	bindUnitForm := bindUnitFormFromDeleteContext(c)
 	result := r.bindService.UnbindUnit(name, bindUnitForm)
-	fmt.Println("result", result)
+
+	if result == services.UnbindUnitFailure {
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code: models.ErrorUnbindUnitFailed,
+			Message: "Failed to unbind unit from service",
+		})
+		return
+	}
+
+	if result == services.UnbindUnitAppNotBound {
+		c.JSON(http.StatusNotFound, models.Error{
+			Code: models.ErrorUnbindUnitAppNotBound,
+			Message: "App is not bound to service, could not unbind unit",
+		})
+		return
+	}
+
+	if result == services.UnbindUnitNotBound {
+		c.JSON(http.StatusNotFound, models.Error{
+			Code: models.ErrorUnbindUnitNotBound,
+			Message: "Unit is not bound to service",
+		})
+		return
+	}
+
+	c.Status(http.StatusOK)
 }
 
 func (r *bindRouter) SetupRoutes(router gin.IRouter) {

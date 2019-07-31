@@ -25,6 +25,11 @@ var _ = Describe("BindRouter", func() {
 		AppName: "app-1",
 		AppHost: "app-host-1",
 	}
+	bindUnitForm := &models.BindUnitForm{
+		AppName: "app-1",
+		AppHost: "app-host-1",
+		UnitHost: "unit-host-1",
+	}
 
 	prepareGinRouter := func(bindService services.BindService) *gin.Engine {
 		ginRouter := gin.New()
@@ -340,6 +345,254 @@ var _ = Describe("BindRouter", func() {
 			Expect(bodyToError(recorder)).To(Equal(expected))
 			Expect(recorder.Code).To(Equal(500))
 			Expect(bindService.UnbindAppCalls()).To(HaveLen(1))
+		})
+	})
+
+	_ = Describe("POST bind unit", func() {
+		_ = It("returns 201 when creates successfully", func() {
+			// arrange
+			bindService := &mocks.BindServiceMock{
+				BindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.BindUnitResult {
+					return services.BindUnitSuccess
+				},
+			}
+
+			data := url.Values{}
+			data.Set("app-name", bindUnitForm.AppName)
+			data.Set("app-host", bindUnitForm.AppHost)
+			data.Set("unit-host", bindUnitForm.UnitHost)
+
+			ginRouter := prepareGinRouter(bindService)
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("POST", fmt.Sprintf("/%s/bind", instanceName), strings.NewReader(data.Encode()))
+			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+			// act
+			ginRouter.ServeHTTP(recorder, req)
+
+			// assert
+			Expect(recorder.Code).To(Equal(201))
+			Expect(bindService.BindUnitCalls()).To(HaveLen(1))
+		})
+
+		_ = It("returns 500 when fails to bind unit", func() {
+			// arrange
+			expected := &models.Error{
+				Code: models.ErrorBindUnitFailed,
+				Message: "Failed to bind unit to service",
+			}
+
+			bindService := &mocks.BindServiceMock{
+				BindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.BindUnitResult {
+					return services.BindUnitFailure
+				},
+			}
+
+			data := url.Values{}
+			data.Set("app-name", bindUnitForm.AppName)
+			data.Set("app-host", bindUnitForm.AppHost)
+			data.Set("unit-host", bindUnitForm.UnitHost)
+
+			ginRouter := prepareGinRouter(bindService)
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("POST", fmt.Sprintf("/%s/bind", instanceName), strings.NewReader(data.Encode()))
+			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+			// act
+			ginRouter.ServeHTTP(recorder, req)
+
+			// assert
+			Expect(bodyToError(recorder)).To(Equal(expected))
+			Expect(recorder.Code).To(Equal(500))
+			Expect(bindService.BindUnitCalls()).To(HaveLen(1))
+		})
+
+		_ = It("returns 404 when app is not bound to service", func() {
+			// arrange
+			expected := &models.Error{
+				Code: models.ErrorBindUnitAppNotBound,
+				Message: "App is not bound to service, could not bind unit",
+			}
+
+			bindService := &mocks.BindServiceMock{
+				BindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.BindUnitResult {
+					return services.BindUnitAppNotBound
+				},
+			}
+
+			data := url.Values{}
+			data.Set("app-name", bindUnitForm.AppName)
+			data.Set("app-host", bindUnitForm.AppHost)
+			data.Set("unit-host", bindUnitForm.UnitHost)
+
+			ginRouter := prepareGinRouter(bindService)
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("POST", fmt.Sprintf("/%s/bind", instanceName), strings.NewReader(data.Encode()))
+			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+			// act
+			ginRouter.ServeHTTP(recorder, req)
+
+			// assert
+			Expect(bodyToError(recorder)).To(Equal(expected))
+			Expect(recorder.Code).To(Equal(404))
+			Expect(bindService.BindUnitCalls()).To(HaveLen(1))
+		})
+
+		_ = It("returns 400 when unit is already bound to service", func() {
+			// arrange
+			expected := &models.Error{
+				Code: models.ErrorBindUnitAlreadyBound,
+				Message: "Unit is already bound to service",
+			}
+
+			bindService := &mocks.BindServiceMock{
+				BindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.BindUnitResult {
+					return services.BindUnitAlreadyBound
+				},
+			}
+
+			data := url.Values{}
+			data.Set("app-name", bindUnitForm.AppName)
+			data.Set("app-host", bindUnitForm.AppHost)
+			data.Set("unit-host", bindUnitForm.UnitHost)
+
+			ginRouter := prepareGinRouter(bindService)
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("POST", fmt.Sprintf("/%s/bind", instanceName), strings.NewReader(data.Encode()))
+			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+			// act
+			ginRouter.ServeHTTP(recorder, req)
+
+			// assert
+			Expect(bodyToError(recorder)).To(Equal(expected))
+			Expect(recorder.Code).To(Equal(400))
+			Expect(bindService.BindUnitCalls()).To(HaveLen(1))
+		})
+	})
+
+	_ = Describe("DELETE bind unit", func() {
+		_ = It("returns 200 when deletes successfully", func() {
+			// arrange
+			bindService := &mocks.BindServiceMock{
+				UnbindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.UnbindUnitResult {
+					return services.UnbindUnitSuccess
+				},
+			}
+
+			data := url.Values{}
+			data.Set("app-name", bindUnitForm.AppName)
+			data.Set("app-host", bindUnitForm.AppHost)
+			data.Set("unit-host", bindUnitForm.UnitHost)
+
+			ginRouter := prepareGinRouter(bindService)
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("DELETE", fmt.Sprintf("/%s/bind", instanceName), strings.NewReader(data.Encode()))
+			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+			// act
+			ginRouter.ServeHTTP(recorder, req)
+
+			// assert
+			Expect(recorder.Code).To(Equal(200))
+			Expect(bindService.UnbindUnitCalls()).To(HaveLen(1))
+		})
+
+		_ = It("returns 500 when fails to unbind unit", func() {
+			// arrange
+			expected := &models.Error{
+				Code: models.ErrorUnbindUnitFailed,
+				Message: "Failed to unbind unit from service",
+			}
+
+			bindService := &mocks.BindServiceMock{
+				UnbindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.UnbindUnitResult {
+					return services.UnbindUnitFailure
+				},
+			}
+
+			data := url.Values{}
+			data.Set("app-name", bindUnitForm.AppName)
+			data.Set("app-host", bindUnitForm.AppHost)
+			data.Set("unit-host", bindUnitForm.UnitHost)
+
+			ginRouter := prepareGinRouter(bindService)
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("DELETE", fmt.Sprintf("/%s/bind", instanceName), strings.NewReader(data.Encode()))
+			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+			// act
+			ginRouter.ServeHTTP(recorder, req)
+
+			// assert
+			Expect(bodyToError(recorder)).To(Equal(expected))
+			Expect(recorder.Code).To(Equal(500))
+			Expect(bindService.UnbindUnitCalls()).To(HaveLen(1))
+		})
+
+		_ = It("returns 404 when app is not bound to service", func() {
+			// arrange
+			expected := &models.Error{
+				Code: models.ErrorUnbindUnitAppNotBound,
+				Message: "App is not bound to service, could not unbind unit",
+			}
+
+			bindService := &mocks.BindServiceMock{
+				UnbindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.UnbindUnitResult {
+					return services.UnbindUnitAppNotBound
+				},
+			}
+
+			data := url.Values{}
+			data.Set("app-name", bindUnitForm.AppName)
+			data.Set("app-host", bindUnitForm.AppHost)
+			data.Set("unit-host", bindUnitForm.UnitHost)
+
+			ginRouter := prepareGinRouter(bindService)
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("DELETE", fmt.Sprintf("/%s/bind", instanceName), strings.NewReader(data.Encode()))
+			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+			// act
+			ginRouter.ServeHTTP(recorder, req)
+
+			// assert
+			Expect(bodyToError(recorder)).To(Equal(expected))
+			Expect(recorder.Code).To(Equal(404))
+			Expect(bindService.UnbindUnitCalls()).To(HaveLen(1))
+		})
+
+		_ = It("returns 400 when unit is already bound to service", func() {
+			// arrange
+			expected := &models.Error{
+				Code: models.ErrorUnbindUnitNotBound,
+				Message: "Unit is not bound to service",
+			}
+
+			bindService := &mocks.BindServiceMock{
+				UnbindUnitFunc: func(name string, bindUnitForm *models.BindUnitForm) services.UnbindUnitResult {
+					return services.UnbindUnitNotBound
+				},
+			}
+
+			data := url.Values{}
+			data.Set("app-name", bindUnitForm.AppName)
+			data.Set("app-host", bindUnitForm.AppHost)
+			data.Set("unit-host", bindUnitForm.UnitHost)
+
+			ginRouter := prepareGinRouter(bindService)
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("DELETE", fmt.Sprintf("/%s/bind", instanceName), strings.NewReader(data.Encode()))
+			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+			// act
+			ginRouter.ServeHTTP(recorder, req)
+
+			// assert
+			Expect(bodyToError(recorder)).To(Equal(expected))
+			Expect(recorder.Code).To(Equal(404))
+			Expect(bindService.UnbindUnitCalls()).To(HaveLen(1))
 		})
 	})
 })

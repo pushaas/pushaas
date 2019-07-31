@@ -42,4 +42,12 @@ const (
 	ErrorUnbindAppNotFound = 110
 	ErrorUnbindAppNotBound = 111
 	ErrorUnbindAppFailed   = 112
+
+	ErrorBindUnitAppNotBound  = 120
+	ErrorBindUnitAlreadyBound = 121
+	ErrorBindUnitFailed       = 122
+
+	ErrorUnbindUnitAppNotBound = 130
+	ErrorUnbindUnitNotBound    = 131
+	ErrorUnbindUnitFailed      = 132
 )

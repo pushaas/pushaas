@@ -4,16 +4,18 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
 	"github.com/rafaeleyng/pushaas/pushaas/ctors"
+	"github.com/rafaeleyng/pushaas/pushaas/workers"
 )
 
-func runApp(logger *zap.Logger, redisClient redis.UniversalClient, router *gin.Engine, config *viper.Viper) error {
+func runApp(logger *zap.Logger, router *gin.Engine, config *viper.Viper, provisionWorker workers.ProvisionWorker) error {
 	log := logger.Named("runApp")
+
+	provisionWorker.DispatchWorker()
 
 	err := router.Run(fmt.Sprintf(":%s", config.GetString("server.port")))
 	if err != nil {
@@ -48,6 +50,9 @@ func Run() {
 
 			// provisioners
 			ctors.NewProvisioner,
+
+			// workers
+			ctors.NewProvisionWorker,
 		),
 		fx.Invoke(runApp),
 	)

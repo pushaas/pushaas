@@ -80,6 +80,7 @@ func setupFromDefaults(config *viper.Viper, env string) {
 
 	// workers
 	config.SetDefault("workers.enabled", true)
+	config.SetDefault("workers.provision.enabled", true)
 }
 
 func setupFromEnvironment(config *viper.Viper) {

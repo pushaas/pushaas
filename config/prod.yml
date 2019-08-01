@@ -1,0 +1,2 @@
+redis:
+  url: redis://pushaas-redis.tsuru:6379

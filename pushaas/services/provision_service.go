@@ -34,12 +34,12 @@ const (
 )
 
 func (provisionService) DispatchProvision(*models.Instance) DispatchProvisionResult {
-	// TODO
+	// TODO implement with https://github.com/adjust/rmq
 	return DispatchProvisionResultSuccess
 }
 
 func (provisionService) DispatchDeprovision(*models.Instance) DispatchDeprovisionResult {
-	// TODO
+	// TODO implement with https://github.com/adjust/rmq
 	return DispatchDeprovisionResultSuccess
 }
 

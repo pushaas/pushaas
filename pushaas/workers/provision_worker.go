@@ -18,6 +18,7 @@ type (
 )
 
 func (w *provisionWorker) startWorker() {
+	// TODO implement with https://github.com/adjust/rmq
 	fmt.Println("### starting provision worker")
 }
 

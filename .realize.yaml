@@ -3,7 +3,7 @@ settings:
     force: false
     interval: 0s
 schema:
-- name: push-api
+- name: pushaas
   path: .
   commands:
     run:

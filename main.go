@@ -2,24 +2,67 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/servicediscovery"
 
 	//"github.com/rafaeleyng/pushaas/pushaas"
 )
+
+/*
+- [ok] service push-redis
+- [ok] service discovery push-redis
+
+- task definition push-api
+- service push-api
+- service discovery push-api
+
+- task definition push-stream
+- service push-stream
+- service discovery push-stream
+ */
+
+const awsRegion = "us-east-1"
+
+const logsGroup = "/ecs/pushaas"
+const logsStreamPrefix = "ecs"
 
 const roleName = "ecsTaskExecutionRole"
 
 const instanceName = "instance-123"
 
 const clusterName = "pushaas-cluster"
-const redisTaskDefinitionName = "push-redis-" + instanceName
-const serviceName = "service-redis-" + instanceName
 
-func getIamRole(iamSvc *iam.IAM) {
+const pushRedis = "push-redis"
+const pushRedisWithInstance = pushRedis + "-" + instanceName
+
+const pushApiImage = "rafaeleyng/push-api:latest" // TODO use actual tag
+const pushApi = "push-api"
+const pushApiWithInstance = pushApi + "-" + instanceName
+
+const pushAgentImage = "rafaeleyng/push-agent:latest" // TODO use actual tag
+const pushAgent = "push-agent"
+
+const pushStreamImage = "rafaeleyng/push-stream:latest" // TODO use actual tag
+const pushStream = "push-stream"
+const pushStreamWithInstance = pushStream + "-" + instanceName
+
+// TODO comes from `scripts/40-pushaas/60-create-app-service/terraform.tfstate`, should create specific for each part of push service
+const sgService = "sg-0e4238283a613e4fd"
+// TODO comes from `scripts/10-vpc/10-create-vpc/terraform.tfstate`, this is ok, just pass as env
+const subnet = "subnet-0852fc9806179665c"
+// TODO coms from `scripts/30-dns/10-create-namespace/terraform.tfstate`, this is ok, just pass as env
+const dnsNamespace = "ns-srddhanacg4dxlea"
+
+///////////////////////////////////////////////////////////////////////////////
+// general
+///////////////////////////////////////////////////////////////////////////////
+func getIamRole(iamSvc *iam.IAM) *iam.GetRoleOutput {
 	input := &iam.GetRoleInput{
 		RoleName: aws.String(roleName),
 	}
@@ -31,6 +74,7 @@ func getIamRole(iamSvc *iam.IAM) {
 	}
 	fmt.Println("========== GetRole ==========")
 	fmt.Println(output.GoString())
+	return output
 }
 
 func listTaskDescriptions(svc *ecs.ECS) {
@@ -44,14 +88,6 @@ func listTaskDescriptions(svc *ecs.ECS) {
 	fmt.Println("========== ListTaskDefinitions ==========")
 	fmt.Println(output.GoString())
 }
-
-//func createRedisTaskDefinition(svc *ecs.ECS) {
-//	input := &ecs.RegisterTaskDefinitionInput{
-//
-//	}
-//
-//	svc.RegisterTaskDefinition()
-//}
 
 func listServices(svc *ecs.ECS) {
 	input := &ecs.ListServicesInput{
@@ -68,18 +104,21 @@ func listServices(svc *ecs.ECS) {
 	fmt.Println(output.GoString())
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// redis
+///////////////////////////////////////////////////////////////////////////////
 func describeRedisService(svc *ecs.ECS) {
 	input := &ecs.DescribeServicesInput{
 		Cluster: aws.String(clusterName),
-		Services: []*string{aws.String(serviceName)},
+		Services: []*string{aws.String(pushRedisWithInstance)},
 	}
 
 	output, err := svc.DescribeServices(input)
 	if err != nil {
-		fmt.Println("========== FAILED DescribeServices ==========")
+		fmt.Println("========== redis - FAILED DescribeServices ==========")
 		panic(err)
 	}
-	fmt.Println("========== DescribeServices ==========")
+	fmt.Println("========== redis - DescribeServices ==========")
 	fmt.Println(output.GoString())
 }
 
@@ -87,58 +126,443 @@ func createRedisService(svc *ecs.ECS) {
 	input := &ecs.CreateServiceInput{
 		Cluster: aws.String(clusterName),
 		DesiredCount: aws.Int64(1),
-		ServiceName: aws.String(serviceName),
-		TaskDefinition: aws.String(redisTaskDefinitionName),
+		ServiceName: aws.String(pushRedisWithInstance),
+		TaskDefinition: aws.String(pushRedis),
 		LaunchType: aws.String(ecs.LaunchTypeFargate),
 		NetworkConfiguration: &ecs.NetworkConfiguration{
 			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
-				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
-				// TODO is comming from `scripts/40-pushaas/60-create-app-service/terraform.tfstate`, should create specific for redis services
-				SecurityGroups: []*string{aws.String("sg-0ab3dd2d1b0b21f1b")},
-				// TODO is comming from `scripts/10-vpc/10-create-vpc/terraform.tfstate`, this is ok, just pass as env
-				Subnets: []*string{aws.String("subnet-0852fc9806179665c")},
+				SecurityGroups: []*string{aws.String(sgService)},
+				Subnets: []*string{aws.String(subnet)},
 			},
 		},
 	}
 
 	output, err := svc.CreateService(input)
 	if err != nil {
-		fmt.Println("========== FAILED CreateService ==========")
+		fmt.Println("========== redis - FAILED CreateService ==========")
 		panic(err)
 	}
-	fmt.Println("========== CreateService ==========")
+	fmt.Println("========== redis - CreateService ==========")
 	fmt.Println(output.GoString())
+}
+
+func createRedisServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
+	input := &servicediscovery.CreateServiceInput{
+		Name: aws.String(pushRedisWithInstance),
+		NamespaceId: aws.String(dnsNamespace),
+		DnsConfig: &servicediscovery.DnsConfig{
+			DnsRecords: []*servicediscovery.DnsRecord{
+				{
+					TTL: aws.Int64(10),
+					Type: aws.String("A"),
+				},
+			},
+		},
+		HealthCheckCustomConfig: &servicediscovery.HealthCheckCustomConfig{
+			FailureThreshold: aws.Int64(1),
+		},
+	}
+
+	output, err := svc.CreateService(input)
+	if err != nil {
+		fmt.Println("========== redis - FAILED CreateService discovery ==========")
+		panic(err)
+	}
+	fmt.Println("========== redis - CreateService discovery ==========")
+	fmt.Println(output.GoString())
+}
+
+func deleteRedisServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
+	// TODO implement
 }
 
 func deleteRedisService(svc *ecs.ECS) {
 	input := &ecs.DeleteServiceInput{
 		Cluster: aws.String(clusterName),
 		Force: aws.Bool(true),
-		Service: aws.String(serviceName),
+		Service: aws.String(pushRedisWithInstance),
 	}
 
 	output, err := svc.DeleteService(input)
 	if err != nil {
-		fmt.Println("========== FAILED DeleteService ==========")
+		fmt.Println("========== redis - FAILED DeleteService ==========")
 		panic(err)
 	}
-	fmt.Println("========== DeleteService ==========")
+	fmt.Println("========== redis - DeleteService ==========")
 	fmt.Println(output.GoString())
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// push-api
+///////////////////////////////////////////////////////////////////////////////
+func createPushApiTaskDefinition(svc *ecs.ECS, roleOutput *iam.GetRoleOutput) {
+	input := &ecs.RegisterTaskDefinitionInput{
+		Family: aws.String(pushApiWithInstance),
+		ExecutionRoleArn: roleOutput.Role.Arn,
+		NetworkMode: aws.String(ecs.NetworkModeAwsvpc),
+		RequiresCompatibilities: []*string{aws.String(ecs.CompatibilityFargate)},
+		Cpu: aws.String("256"),
+		Memory: aws.String("512"),
+		ContainerDefinitions: []*ecs.ContainerDefinition{
+			{
+				Cpu: aws.Int64(256),
+				Image: aws.String(pushApiImage),
+				MemoryReservation: aws.Int64(512),
+				Name: aws.String(pushApi),
+				//NetworkMode - TODO exists on terraform, but not here
+				LogConfiguration: &ecs.LogConfiguration{
+					LogDriver: aws.String(ecs.LogDriverAwslogs),
+					Options: map[string]*string{
+						"awslogs-group": aws.String(logsGroup),
+						"awslogs-region": aws.String(awsRegion),
+						"awslogs-stream-prefix": aws.String(logsStreamPrefix),
+					},
+				},
+				PortMappings: []*ecs.PortMapping{
+					{
+						ContainerPort: aws.Int64(8080),
+						HostPort: aws.Int64(8080),
+					},
+				},
+				Environment: []*ecs.KeyValuePair{
+					{
+						Name: aws.String("PUSHAPI_REDIS__URL"),
+						Value: aws.String("redis://" + pushRedisWithInstance + ":6379"),
+					},
+					{
+						Name: aws.String("PUSHAPI_PUSH_STREAM__URL"),
+						Value: aws.String("http://" + pushStreamWithInstance + ":9080"),
+					},
+				},
+			},
+		},
+	}
+
+	output, err := svc.RegisterTaskDefinition(input)
+	if err != nil {
+		fmt.Println("========== push-api - FAILED RegisterTaskDefinition ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-api - RegisterTaskDefinition ==========")
+	fmt.Println(output.GoString())
+}
+
+func describePushApiService(svc *ecs.ECS) {
+	input := &ecs.DescribeServicesInput{
+		Cluster: aws.String(clusterName),
+		Services: []*string{aws.String(pushApiWithInstance)},
+	}
+
+	output, err := svc.DescribeServices(input)
+	if err != nil {
+		fmt.Println("========== push-api - FAILED DescribeServices ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-api - DescribeServices ==========")
+	fmt.Println(output.GoString())
+}
+
+func createPushApiService(svc *ecs.ECS) {
+	input := &ecs.CreateServiceInput{
+		Cluster: aws.String(clusterName),
+		DesiredCount: aws.Int64(1),
+		ServiceName: aws.String(pushApiWithInstance),
+		TaskDefinition: aws.String(pushApiWithInstance),
+		LaunchType: aws.String(ecs.LaunchTypeFargate),
+		NetworkConfiguration: &ecs.NetworkConfiguration{
+			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
+				SecurityGroups: []*string{aws.String(sgService)},
+				Subnets: []*string{aws.String(subnet)},
+			},
+		},
+	}
+
+	output, err := svc.CreateService(input)
+	if err != nil {
+		fmt.Println("========== push-api - FAILED CreateService ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-api - CreateService ==========")
+	fmt.Println(output.GoString())
+}
+
+func deletePushApiService(svc *ecs.ECS) {
+	input := &ecs.DeleteServiceInput{
+		Cluster: aws.String(clusterName),
+		Force: aws.Bool(true),
+		Service: aws.String(pushApiWithInstance),
+	}
+
+	output, err := svc.DeleteService(input)
+	if err != nil {
+		fmt.Println("========== push-api - FAILED DeleteService ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-api - DeleteService ==========")
+	fmt.Println(output.GoString())
+}
+
+func createPushApiServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
+	input := &servicediscovery.CreateServiceInput{
+		Name: aws.String(pushApiWithInstance),
+		NamespaceId: aws.String(dnsNamespace),
+		DnsConfig: &servicediscovery.DnsConfig{
+			DnsRecords: []*servicediscovery.DnsRecord{
+				{
+					TTL: aws.Int64(10),
+					Type: aws.String("A"),
+				},
+			},
+		},
+		HealthCheckCustomConfig: &servicediscovery.HealthCheckCustomConfig{
+			FailureThreshold: aws.Int64(1),
+		},
+	}
+
+	output, err := svc.CreateService(input)
+	if err != nil {
+		fmt.Println("========== push-api - FAILED CreateService discovery ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-api - CreateService discovery ==========")
+	fmt.Println(output.GoString())
+}
+
+func deletePushApiServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
+	// TODO implement
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// push-stream
+///////////////////////////////////////////////////////////////////////////////
+func createPushStreamTaskDefinition(svc *ecs.ECS, roleOutput *iam.GetRoleOutput) {
+	input := &ecs.RegisterTaskDefinitionInput{
+		Family: aws.String(pushStreamWithInstance),
+		ExecutionRoleArn: roleOutput.Role.Arn,
+		NetworkMode: aws.String(ecs.NetworkModeAwsvpc),
+		RequiresCompatibilities: []*string{aws.String(ecs.CompatibilityFargate)},
+		Cpu: aws.String("512"),
+		Memory: aws.String("1024"),
+		ContainerDefinitions: []*ecs.ContainerDefinition{
+			{
+				Cpu: aws.Int64(256),
+				Image: aws.String(pushStreamImage),
+				MemoryReservation: aws.Int64(512),
+				Name: aws.String(pushStream),
+				LogConfiguration: &ecs.LogConfiguration{
+					LogDriver: aws.String(ecs.LogDriverAwslogs),
+					Options: map[string]*string{
+						"awslogs-group": aws.String(logsGroup),
+						"awslogs-region": aws.String(awsRegion),
+						"awslogs-stream-prefix": aws.String(logsStreamPrefix),
+					},
+				},
+				PortMappings: []*ecs.PortMapping{
+					{
+						ContainerPort: aws.Int64(9080),
+						HostPort: aws.Int64(9080),
+					},
+				},
+			},
+			{
+				Cpu: aws.Int64(256),
+				Image: aws.String(pushAgentImage),
+				MemoryReservation: aws.Int64(512),
+				Name: aws.String(pushAgent),
+				LogConfiguration: &ecs.LogConfiguration{
+					LogDriver: aws.String(ecs.LogDriverAwslogs),
+					Options: map[string]*string{
+						"awslogs-group": aws.String(logsGroup),
+						"awslogs-region": aws.String(awsRegion),
+						"awslogs-stream-prefix": aws.String(logsStreamPrefix),
+					},
+				},
+				Environment: []*ecs.KeyValuePair{
+					{
+						Name: aws.String("PUSHAGENT_REDIS__URL"),
+						Value: aws.String("redis://" + pushRedisWithInstance + ":6379"),
+					},
+					{
+						Name: aws.String("PUSHAGENT_PUSH_STREAM__URL"),
+						Value: aws.String("http://" + pushStreamWithInstance + ":9080"),
+					},
+				},
+			},
+		},
+	}
+
+	output, err := svc.RegisterTaskDefinition(input)
+	if err != nil {
+		fmt.Println("========== push-stream - FAILED RegisterTaskDefinition ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-stream - RegisterTaskDefinition ==========")
+	fmt.Println(output.GoString())
+}
+
+func describePushStreamService(svc *ecs.ECS) {
+	input := &ecs.DescribeServicesInput{
+		Cluster: aws.String(clusterName),
+		Services: []*string{aws.String(pushStreamWithInstance)},
+	}
+
+	output, err := svc.DescribeServices(input)
+	if err != nil {
+		fmt.Println("========== push-stream - FAILED DescribeServices ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-stream - DescribeServices ==========")
+	fmt.Println(output.GoString())
+}
+
+func createPushStreamService(svc *ecs.ECS) {
+	input := &ecs.CreateServiceInput{
+		Cluster: aws.String(clusterName),
+		DesiredCount: aws.Int64(1),
+		ServiceName: aws.String(pushStreamWithInstance),
+		TaskDefinition: aws.String(pushStream),
+		LaunchType: aws.String(ecs.LaunchTypeFargate),
+		NetworkConfiguration: &ecs.NetworkConfiguration{
+			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
+				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
+				SecurityGroups: []*string{aws.String(sgService)},
+				Subnets: []*string{aws.String(subnet)},
+			},
+		},
+	}
+
+	output, err := svc.CreateService(input)
+	if err != nil {
+		fmt.Println("========== push-stream - FAILED CreateService ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-stream - CreateService ==========")
+	fmt.Println(output.GoString())
+}
+
+func deletePushStreamService(svc *ecs.ECS) {
+	input := &ecs.DeleteServiceInput{
+		Cluster: aws.String(clusterName),
+		Force: aws.Bool(true),
+		Service: aws.String(pushStreamWithInstance),
+	}
+
+	output, err := svc.DeleteService(input)
+	if err != nil {
+		fmt.Println("========== push-stream - FAILED DeleteService ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-stream - DeleteService ==========")
+	fmt.Println(output.GoString())
+}
+
+func createPushStreamServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
+	input := &servicediscovery.CreateServiceInput{
+		Name: aws.String(pushStreamWithInstance),
+		NamespaceId: aws.String(dnsNamespace),
+		DnsConfig: &servicediscovery.DnsConfig{
+			DnsRecords: []*servicediscovery.DnsRecord{
+				{
+					TTL: aws.Int64(10),
+					Type: aws.String("A"),
+				},
+			},
+		},
+		HealthCheckCustomConfig: &servicediscovery.HealthCheckCustomConfig{
+			FailureThreshold: aws.Int64(1),
+		},
+	}
+
+	output, err := svc.CreateService(input)
+	if err != nil {
+		fmt.Println("========== push-stream - FAILED CreateService discovery ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-stream - CreateService discovery ==========")
+	fmt.Println(output.GoString())
+}
+
+func deletePushStreamServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
+	// TODO implement
+}
+
+func deleteServiceDiscoveryServices(svc *servicediscovery.ServiceDiscovery) {
+	input := &servicediscovery.ListServicesInput{
+	}
+
+	output, err := svc.ListServices(input)
+	if err != nil {
+		fmt.Println("========== FAILED ListServices discovery ==========")
+		panic(err)
+	}
+	fmt.Println("========== ListServices discovery ==========")
+	fmt.Println(output.GoString())
+
+	services := output.Services
+	for _, s := range services {
+		if strings.HasPrefix(*s.Name, "push-") {
+			deleteInput := &servicediscovery.DeleteServiceInput{Id:s.Id}
+			deleteOutput, err := svc.DeleteService(deleteInput)
+			if err != nil {
+				fmt.Println("========== FAILED DeleteService discovery ==========")
+				panic(err)
+			}
+			fmt.Println("========== DeleteService discovery ==========")
+			fmt.Println(deleteOutput.GoString())
+		} else {
+			fmt.Println("do not delete", s.Name)
+		}
+	}
 }
 
 func main() {
 	//pushaas.Run()
+	const ACTION_LIST = "list"
+	const ACTION_DESCRIBE = "describe"
+	const ACTION_CREATE = "create"
+	const ACTION_DELETE = "delete"
+	action := os.Getenv("ACTION")
 
 	mySession := session.Must(session.NewSession())
-	ecsSvc := ecs.New(mySession)
 	iamSvc := iam.New(mySession)
+	ecsSvc := ecs.New(mySession)
+	sdSvc := servicediscovery.New(mySession)
 
-	getIamRole(iamSvc)
+	roleOutput := getIamRole(iamSvc)
 
-	listTaskDescriptions(ecsSvc)
+	if action == ACTION_LIST {
+		listTaskDescriptions(ecsSvc)
+		listServices(ecsSvc)
+		return
+	}
 
-	//listServices(ecsSvc)
-	//describeRedisService(ecsSvc)
-	//deleteRedisService(ecsSvc)
-	//createRedisService(ecsSvc)
+	if action == ACTION_DESCRIBE {
+		describeRedisService(ecsSvc)
+		describePushApiService(ecsSvc)
+		describePushStreamService(ecsSvc)
+		return
+	}
+
+	if action == ACTION_CREATE {
+		createRedisService(ecsSvc)
+		createRedisServiceDiscovery(sdSvc)
+
+		createPushApiTaskDefinition(ecsSvc, roleOutput)
+		createPushApiService(ecsSvc)
+		createPushApiServiceDiscovery(sdSvc)
+
+		createPushStreamTaskDefinition(ecsSvc, roleOutput)
+		createPushStreamService(ecsSvc)
+		createPushStreamServiceDiscovery(sdSvc)
+		return
+	}
+
+	if action == ACTION_DELETE {
+		deleteRedisService(ecsSvc)
+		deletePushApiService(ecsSvc)
+		deletePushStreamService(ecsSvc)
+
+		deleteServiceDiscoveryServices(sdSvc)
+		return
+	}
 }

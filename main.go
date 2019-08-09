@@ -18,13 +18,13 @@ import (
 - [ok] service push-redis
 - [ok] service discovery push-redis
 
-- task definition push-api
-- service push-api
-- service discovery push-api
+- [ok] task definition push-api
+- [ok] service push-api
+- [ok] service discovery push-api
 
-- task definition push-stream
-- service push-stream
-- service discovery push-stream
+- [ok] task definition push-stream
+- [ok] service push-stream
+- [ok] service discovery push-stream
  */
 
 const awsRegion = "us-east-1"
@@ -34,7 +34,7 @@ const logsStreamPrefix = "ecs"
 
 const roleName = "ecsTaskExecutionRole"
 
-const instanceName = "instance-123"
+const instanceName = "instance-10"
 
 const clusterName = "pushaas-cluster"
 
@@ -52,8 +52,10 @@ const pushStreamImage = "rafaeleyng/push-stream:latest" // TODO use actual tag
 const pushStream = "push-stream"
 const pushStreamWithInstance = pushStream + "-" + instanceName
 
+// TODO comes from `scripts/40-pushaas/30-create-cluster/terraform.tfstate`, should create specific for each part of push service
+const sgServiceInboudOutboundSubnet = "sg-0b5a8c5d666e24f25"
 // TODO comes from `scripts/40-pushaas/60-create-app-service/terraform.tfstate`, should create specific for each part of push service
-const sgService = "sg-0e4238283a613e4fd"
+const sgServiceInboudAll = "sg-0e4238283a613e4fd"
 // TODO comes from `scripts/10-vpc/10-create-vpc/terraform.tfstate`, this is ok, just pass as env
 const subnet = "subnet-0852fc9806179665c"
 // TODO coms from `scripts/30-dns/10-create-namespace/terraform.tfstate`, this is ok, just pass as env
@@ -131,7 +133,8 @@ func createRedisService(svc *ecs.ECS) {
 		LaunchType: aws.String(ecs.LaunchTypeFargate),
 		NetworkConfiguration: &ecs.NetworkConfiguration{
 			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
-				SecurityGroups: []*string{aws.String(sgService)},
+				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
+				SecurityGroups: []*string{aws.String(sgServiceInboudAll), aws.String(sgServiceInboudOutboundSubnet)},
 				Subnets: []*string{aws.String(subnet)},
 			},
 		},
@@ -271,7 +274,8 @@ func createPushApiService(svc *ecs.ECS) {
 		LaunchType: aws.String(ecs.LaunchTypeFargate),
 		NetworkConfiguration: &ecs.NetworkConfiguration{
 			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
-				SecurityGroups: []*string{aws.String(sgService)},
+				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
+				SecurityGroups: []*string{aws.String(sgServiceInboudAll), aws.String(sgServiceInboudOutboundSubnet)},
 				Subnets: []*string{aws.String(subnet)},
 			},
 		},
@@ -365,6 +369,7 @@ func createPushStreamTaskDefinition(svc *ecs.ECS, roleOutput *iam.GetRoleOutput)
 				},
 			},
 			{
+				// TODO should I use DependsOn?
 				Cpu: aws.Int64(256),
 				Image: aws.String(pushAgentImage),
 				MemoryReservation: aws.Int64(512),
@@ -420,12 +425,12 @@ func createPushStreamService(svc *ecs.ECS) {
 		Cluster: aws.String(clusterName),
 		DesiredCount: aws.Int64(1),
 		ServiceName: aws.String(pushStreamWithInstance),
-		TaskDefinition: aws.String(pushStream),
+		TaskDefinition: aws.String(pushStreamWithInstance),
 		LaunchType: aws.String(ecs.LaunchTypeFargate),
 		NetworkConfiguration: &ecs.NetworkConfiguration{
 			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
 				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
-				SecurityGroups: []*string{aws.String(sgService)},
+				SecurityGroups: []*string{aws.String(sgServiceInboudAll), aws.String(sgServiceInboudOutboundSubnet)},
 				Subnets: []*string{aws.String(subnet)},
 			},
 		},
@@ -515,6 +520,10 @@ func deleteServiceDiscoveryServices(svc *servicediscovery.ServiceDiscovery) {
 	}
 }
 
+func ignore(ecsSvc *ecs.ECS, discovery *servicediscovery.ServiceDiscovery, iamSvc *iam.IAM, output *iam.GetRoleOutput) {
+
+}
+
 func main() {
 	//pushaas.Run()
 	const ACTION_LIST = "list"
@@ -524,11 +533,12 @@ func main() {
 	action := os.Getenv("ACTION")
 
 	mySession := session.Must(session.NewSession())
-	iamSvc := iam.New(mySession)
 	ecsSvc := ecs.New(mySession)
 	sdSvc := servicediscovery.New(mySession)
-
+	iamSvc := iam.New(mySession)
 	roleOutput := getIamRole(iamSvc)
+
+	ignore(ecsSvc, sdSvc, iamSvc, roleOutput)
 
 	if action == ACTION_LIST {
 		listTaskDescriptions(ecsSvc)

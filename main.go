@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -34,7 +35,7 @@ const logsStreamPrefix = "ecs"
 
 const roleName = "ecsTaskExecutionRole"
 
-const instanceName = "instance-13"
+const instanceName = "instance-20"
 
 const clusterName = "pushaas-cluster"
 
@@ -384,7 +385,7 @@ func createPushStreamTaskDefinition(svc *ecs.ECS, roleOutput *iam.GetRoleOutput)
 			{
 				DependsOn: []*ecs.ContainerDependency{
 					{
-						Condition: aws.String(ecs.ContainerConditionSuccess),
+						Condition: aws.String(ecs.ContainerConditionStart),
 						ContainerName: aws.String(pushStream),
 					},
 				},
@@ -605,6 +606,8 @@ func main() {
 		deleteRedisService(ecsSvc)
 		deletePushApiService(ecsSvc)
 		deletePushStreamService(ecsSvc)
+
+		time.Sleep(20 * time.Second)
 
 		deleteServiceDiscoveryServices(sdSvc)
 		return

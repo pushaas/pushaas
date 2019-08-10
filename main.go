@@ -34,7 +34,7 @@ const logsStreamPrefix = "ecs"
 
 const roleName = "ecsTaskExecutionRole"
 
-const instanceName = "instance-10"
+const instanceName = "instance-13"
 
 const clusterName = "pushaas-cluster"
 
@@ -55,7 +55,7 @@ const pushStreamWithInstance = pushStream + "-" + instanceName
 // TODO comes from `scripts/40-pushaas/30-create-cluster/terraform.tfstate`, should create specific for each part of push service
 const sgServiceInboudOutboundSubnet = "sg-0b5a8c5d666e24f25"
 // TODO comes from `scripts/40-pushaas/60-create-app-service/terraform.tfstate`, should create specific for each part of push service
-const sgServiceInboudAll = "sg-0e4238283a613e4fd"
+const sgServiceInboudAll = "sg-0aa587ddff427106d"
 // TODO comes from `scripts/10-vpc/10-create-vpc/terraform.tfstate`, this is ok, just pass as env
 const subnet = "subnet-0852fc9806179665c"
 // TODO coms from `scripts/30-dns/10-create-namespace/terraform.tfstate`, this is ok, just pass as env
@@ -124,7 +124,7 @@ func describeRedisService(svc *ecs.ECS) {
 	fmt.Println(output.GoString())
 }
 
-func createRedisService(svc *ecs.ECS) {
+func createRedisService(svc *ecs.ECS, redisDiscovery *servicediscovery.CreateServiceOutput) {
 	input := &ecs.CreateServiceInput{
 		Cluster: aws.String(clusterName),
 		DesiredCount: aws.Int64(1),
@@ -138,6 +138,11 @@ func createRedisService(svc *ecs.ECS) {
 				Subnets: []*string{aws.String(subnet)},
 			},
 		},
+		ServiceRegistries: []*ecs.ServiceRegistry{
+			{
+				RegistryArn: redisDiscovery.Service.Arn,
+			},
+		},
 	}
 
 	output, err := svc.CreateService(input)
@@ -149,7 +154,7 @@ func createRedisService(svc *ecs.ECS) {
 	fmt.Println(output.GoString())
 }
 
-func createRedisServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
+func createRedisServiceDiscovery(svc *servicediscovery.ServiceDiscovery) *servicediscovery.CreateServiceOutput {
 	input := &servicediscovery.CreateServiceInput{
 		Name: aws.String(pushRedisWithInstance),
 		NamespaceId: aws.String(dnsNamespace),
@@ -173,6 +178,8 @@ func createRedisServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
 	}
 	fmt.Println("========== redis - CreateService discovery ==========")
 	fmt.Println(output.GoString())
+
+	return output
 }
 
 func deleteRedisServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
@@ -230,11 +237,11 @@ func createPushApiTaskDefinition(svc *ecs.ECS, roleOutput *iam.GetRoleOutput) {
 				Environment: []*ecs.KeyValuePair{
 					{
 						Name: aws.String("PUSHAPI_REDIS__URL"),
-						Value: aws.String("redis://" + pushRedisWithInstance + ":6379"),
+						Value: aws.String("redis://" + pushRedisWithInstance + ".tsuru:6379"),
 					},
 					{
 						Name: aws.String("PUSHAPI_PUSH_STREAM__URL"),
-						Value: aws.String("http://" + pushStreamWithInstance + ":9080"),
+						Value: aws.String("http://" + pushStreamWithInstance + ".tsuru:9080"),
 					},
 				},
 			},
@@ -265,7 +272,7 @@ func describePushApiService(svc *ecs.ECS) {
 	fmt.Println(output.GoString())
 }
 
-func createPushApiService(svc *ecs.ECS) {
+func createPushApiService(svc *ecs.ECS, pushApiDiscovery *servicediscovery.CreateServiceOutput) {
 	input := &ecs.CreateServiceInput{
 		Cluster: aws.String(clusterName),
 		DesiredCount: aws.Int64(1),
@@ -277,6 +284,11 @@ func createPushApiService(svc *ecs.ECS) {
 				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
 				SecurityGroups: []*string{aws.String(sgServiceInboudAll), aws.String(sgServiceInboudOutboundSubnet)},
 				Subnets: []*string{aws.String(subnet)},
+			},
+		},
+		ServiceRegistries: []*ecs.ServiceRegistry{
+			{
+				RegistryArn: pushApiDiscovery.Service.Arn,
 			},
 		},
 	}
@@ -306,7 +318,7 @@ func deletePushApiService(svc *ecs.ECS) {
 	fmt.Println(output.GoString())
 }
 
-func createPushApiServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
+func createPushApiServiceDiscovery(svc *servicediscovery.ServiceDiscovery) *servicediscovery.CreateServiceOutput {
 	input := &servicediscovery.CreateServiceInput{
 		Name: aws.String(pushApiWithInstance),
 		NamespaceId: aws.String(dnsNamespace),
@@ -330,6 +342,7 @@ func createPushApiServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
 	}
 	fmt.Println("========== push-api - CreateService discovery ==========")
 	fmt.Println(output.GoString())
+	return output
 }
 
 func deletePushApiServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
@@ -369,7 +382,12 @@ func createPushStreamTaskDefinition(svc *ecs.ECS, roleOutput *iam.GetRoleOutput)
 				},
 			},
 			{
-				// TODO should I use DependsOn?
+				DependsOn: []*ecs.ContainerDependency{
+					{
+						Condition: aws.String(ecs.ContainerConditionSuccess),
+						ContainerName: aws.String(pushStream),
+					},
+				},
 				Cpu: aws.Int64(256),
 				Image: aws.String(pushAgentImage),
 				MemoryReservation: aws.Int64(512),
@@ -385,11 +403,11 @@ func createPushStreamTaskDefinition(svc *ecs.ECS, roleOutput *iam.GetRoleOutput)
 				Environment: []*ecs.KeyValuePair{
 					{
 						Name: aws.String("PUSHAGENT_REDIS__URL"),
-						Value: aws.String("redis://" + pushRedisWithInstance + ":6379"),
+						Value: aws.String("redis://" + pushRedisWithInstance + ".tsuru:6379"),
 					},
 					{
 						Name: aws.String("PUSHAGENT_PUSH_STREAM__URL"),
-						Value: aws.String("http://" + pushStreamWithInstance + ":9080"),
+						Value: aws.String("http://" + pushStreamWithInstance + ".tsuru:9080"),
 					},
 				},
 			},
@@ -420,7 +438,7 @@ func describePushStreamService(svc *ecs.ECS) {
 	fmt.Println(output.GoString())
 }
 
-func createPushStreamService(svc *ecs.ECS) {
+func createPushStreamService(svc *ecs.ECS, pushStreamDiscovery *servicediscovery.CreateServiceOutput) {
 	input := &ecs.CreateServiceInput{
 		Cluster: aws.String(clusterName),
 		DesiredCount: aws.Int64(1),
@@ -432,6 +450,11 @@ func createPushStreamService(svc *ecs.ECS) {
 				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
 				SecurityGroups: []*string{aws.String(sgServiceInboudAll), aws.String(sgServiceInboudOutboundSubnet)},
 				Subnets: []*string{aws.String(subnet)},
+			},
+		},
+		ServiceRegistries: []*ecs.ServiceRegistry{
+			{
+				RegistryArn: pushStreamDiscovery.Service.Arn,
 			},
 		},
 	}
@@ -461,7 +484,7 @@ func deletePushStreamService(svc *ecs.ECS) {
 	fmt.Println(output.GoString())
 }
 
-func createPushStreamServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
+func createPushStreamServiceDiscovery(svc *servicediscovery.ServiceDiscovery) *servicediscovery.CreateServiceOutput {
 	input := &servicediscovery.CreateServiceInput{
 		Name: aws.String(pushStreamWithInstance),
 		NamespaceId: aws.String(dnsNamespace),
@@ -485,15 +508,18 @@ func createPushStreamServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
 	}
 	fmt.Println("========== push-stream - CreateService discovery ==========")
 	fmt.Println(output.GoString())
+	return output
 }
 
 func deletePushStreamServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
 	// TODO implement
 }
 
-func deleteServiceDiscoveryServices(svc *servicediscovery.ServiceDiscovery) {
-	input := &servicediscovery.ListServicesInput{
-	}
+///////////////////////////////////////////////////////////////////////////////
+// service discovery
+///////////////////////////////////////////////////////////////////////////////
+func listServiceDiscoveryServices(svc *servicediscovery.ServiceDiscovery) *servicediscovery.ListServicesOutput {
+	input := &servicediscovery.ListServicesInput{}
 
 	output, err := svc.ListServices(input)
 	if err != nil {
@@ -502,14 +528,18 @@ func deleteServiceDiscoveryServices(svc *servicediscovery.ServiceDiscovery) {
 	}
 	fmt.Println("========== ListServices discovery ==========")
 	fmt.Println(output.GoString())
+	return output
+}
 
-	services := output.Services
+func deleteServiceDiscoveryServices(svc *servicediscovery.ServiceDiscovery) {
+	discoveryServices := listServiceDiscoveryServices(svc)
+	services := discoveryServices.Services
 	for _, s := range services {
 		if strings.HasPrefix(*s.Name, "push-") {
 			deleteInput := &servicediscovery.DeleteServiceInput{Id:s.Id}
 			deleteOutput, err := svc.DeleteService(deleteInput)
 			if err != nil {
-				fmt.Println("========== FAILED DeleteService discovery ==========")
+				fmt.Println("========== FAILED DeleteService discovery ==========", *s.Name)
 				panic(err)
 			}
 			fmt.Println("========== DeleteService discovery ==========")
@@ -520,9 +550,12 @@ func deleteServiceDiscoveryServices(svc *servicediscovery.ServiceDiscovery) {
 	}
 }
 
-func ignore(ecsSvc *ecs.ECS, discovery *servicediscovery.ServiceDiscovery, iamSvc *iam.IAM, output *iam.GetRoleOutput) {
-
-}
+func ignore(
+	ecsSvc *ecs.ECS,
+	discovery *servicediscovery.ServiceDiscovery,
+	iamSvc *iam.IAM,
+	output *iam.GetRoleOutput,
+) {}
 
 func main() {
 	//pushaas.Run()
@@ -541,8 +574,9 @@ func main() {
 	ignore(ecsSvc, sdSvc, iamSvc, roleOutput)
 
 	if action == ACTION_LIST {
-		listTaskDescriptions(ecsSvc)
-		listServices(ecsSvc)
+		//listTaskDescriptions(ecsSvc)
+		//listServices(ecsSvc)
+		listServiceDiscoveryServices(sdSvc)
 		return
 	}
 
@@ -554,16 +588,16 @@ func main() {
 	}
 
 	if action == ACTION_CREATE {
-		createRedisService(ecsSvc)
-		createRedisServiceDiscovery(sdSvc)
+		redisDiscovery := createRedisServiceDiscovery(sdSvc)
+		createRedisService(ecsSvc, redisDiscovery)
 
+		pushApiDiscovery := createPushApiServiceDiscovery(sdSvc)
 		createPushApiTaskDefinition(ecsSvc, roleOutput)
-		createPushApiService(ecsSvc)
-		createPushApiServiceDiscovery(sdSvc)
+		createPushApiService(ecsSvc, pushApiDiscovery)
 
+		pushStreamDiscovery := createPushStreamServiceDiscovery(sdSvc)
 		createPushStreamTaskDefinition(ecsSvc, roleOutput)
-		createPushStreamService(ecsSvc)
-		createPushStreamServiceDiscovery(sdSvc)
+		createPushStreamService(ecsSvc, pushStreamDiscovery)
 		return
 	}
 

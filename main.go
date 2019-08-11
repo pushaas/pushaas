@@ -54,13 +54,11 @@ const pushStream = "push-stream"
 const pushStreamWithInstance = pushStream + "-" + instanceName
 
 // TODO comes from `scripts/40-pushaas/30-create-cluster/terraform.tfstate`, should create specific for each part of push service
-const sgServiceInboudOutboundSubnet = "sg-0b5a8c5d666e24f25"
-// TODO comes from `scripts/40-pushaas/60-create-app-service/terraform.tfstate`, should create specific for each part of push service
-const sgServiceInboudAll = "sg-0aa587ddff427106d"
-// TODO comes from `scripts/10-vpc/10-create-vpc/terraform.tfstate`, this is ok, just pass as env
+const sg = "sg-037526dc9d82407b5"
+// TODO comes from `scripts/10-vpc/10-create-vpc/terraform.tfstate`, pass as env
 const subnet = "subnet-0852fc9806179665c"
-// TODO coms from `scripts/30-dns/10-create-namespace/terraform.tfstate`, this is ok, just pass as env
-const dnsNamespace = "ns-srddhanacg4dxlea"
+// TODO comes from `scripts/30-dns/10-create-namespace/terraform.tfstate`, pass as env
+const dnsNamespace = "ns-yixgi6scqxj5rgok"
 
 ///////////////////////////////////////////////////////////////////////////////
 // general
@@ -135,7 +133,7 @@ func createRedisService(svc *ecs.ECS, redisDiscovery *servicediscovery.CreateSer
 		NetworkConfiguration: &ecs.NetworkConfiguration{
 			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
 				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
-				SecurityGroups: []*string{aws.String(sgServiceInboudAll), aws.String(sgServiceInboudOutboundSubnet)},
+				SecurityGroups: []*string{aws.String(sg)},
 				Subnets: []*string{aws.String(subnet)},
 			},
 		},
@@ -283,7 +281,7 @@ func createPushApiService(svc *ecs.ECS, pushApiDiscovery *servicediscovery.Creat
 		NetworkConfiguration: &ecs.NetworkConfiguration{
 			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
 				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
-				SecurityGroups: []*string{aws.String(sgServiceInboudAll), aws.String(sgServiceInboudOutboundSubnet)},
+				SecurityGroups: []*string{aws.String(sg)},
 				Subnets: []*string{aws.String(subnet)},
 			},
 		},
@@ -449,7 +447,7 @@ func createPushStreamService(svc *ecs.ECS, pushStreamDiscovery *servicediscovery
 		NetworkConfiguration: &ecs.NetworkConfiguration{
 			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
 				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
-				SecurityGroups: []*string{aws.String(sgServiceInboudAll), aws.String(sgServiceInboudOutboundSubnet)},
+				SecurityGroups: []*string{aws.String(sg)},
 				Subnets: []*string{aws.String(subnet)},
 			},
 		},
@@ -560,10 +558,11 @@ func ignore(
 
 func main() {
 	//pushaas.Run()
-	const ACTION_LIST = "list"
-	const ACTION_DESCRIBE = "describe"
-	const ACTION_CREATE = "create"
-	const ACTION_DELETE = "delete"
+
+	const ActionList = "list"
+	const ActionDescribe = "describe"
+	const ActionCreate = "create"
+	const ActionDelete = "delete"
 	action := os.Getenv("ACTION")
 
 	mySession := session.Must(session.NewSession())
@@ -574,21 +573,21 @@ func main() {
 
 	ignore(ecsSvc, sdSvc, iamSvc, roleOutput)
 
-	if action == ACTION_LIST {
-		//listTaskDescriptions(ecsSvc)
-		//listServices(ecsSvc)
+	if action == ActionList {
+		listTaskDescriptions(ecsSvc)
+		listServices(ecsSvc)
 		listServiceDiscoveryServices(sdSvc)
 		return
 	}
 
-	if action == ACTION_DESCRIBE {
+	if action == ActionDescribe {
 		describeRedisService(ecsSvc)
 		describePushApiService(ecsSvc)
 		describePushStreamService(ecsSvc)
 		return
 	}
 
-	if action == ACTION_CREATE {
+	if action == ActionCreate {
 		redisDiscovery := createRedisServiceDiscovery(sdSvc)
 		createRedisService(ecsSvc, redisDiscovery)
 
@@ -602,7 +601,7 @@ func main() {
 		return
 	}
 
-	if action == ACTION_DELETE {
+	if action == ActionDelete {
 		deleteRedisService(ecsSvc)
 		deletePushApiService(ecsSvc)
 		deletePushStreamService(ecsSvc)

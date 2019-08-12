@@ -74,6 +74,8 @@ func setupFromDefaults(config *viper.Viper, env string) {
 	config.SetDefault("redis.db.instance.prefix", "instance")
 	config.SetDefault("redis.db.bind-app.prefix", "bind-app")
 	config.SetDefault("redis.db.bind-unit.prefix", "bind-unit")
+	config.SetDefault("redis.pubsub.tasks.provision", "provision")
+	config.SetDefault("redis.pubsub.tasks.deprovision", "deprovision")
 
 	// server
 	config.SetDefault("server.port", "9000")

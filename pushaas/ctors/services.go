@@ -1,6 +1,7 @@
 package ctors
 
 import (
+	"github.com/RichardKnop/machinery/v1"
 	"github.com/go-redis/redis"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -16,8 +17,8 @@ func NewBindService(config *viper.Viper, logger *zap.Logger, redisClient redis.U
 	return services.NewBindService(config, logger, redisClient, instanceService)
 }
 
-func NewProvisionService(config *viper.Viper, logger *zap.Logger, redisClient redis.UniversalClient) services.ProvisionService {
-	return services.NewProvisionService(config, logger, redisClient)
+func NewProvisionService(config *viper.Viper, logger *zap.Logger, machineryServer *machinery.Server) services.ProvisionService {
+	return services.NewProvisionService(config, logger, machineryServer)
 }
 
 func NewInstanceService(config *viper.Viper, logger *zap.Logger, redisClient redis.UniversalClient, provisionService services.ProvisionService) services.InstanceService {

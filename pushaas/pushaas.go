@@ -32,6 +32,7 @@ func Run() {
 			ctors.NewViper,
 			ctors.NewLogger,
 			ctors.NewRedisClient,
+			ctors.NewMachineryServer,
 
 			// routers
 			ctors.NewGinRouter,

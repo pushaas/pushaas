@@ -1,11 +1,14 @@
 package ctors
 
 import (
+	"github.com/RichardKnop/machinery/v1"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 
+	"github.com/rafaeleyng/pushaas/pushaas/provisioners"
 	"github.com/rafaeleyng/pushaas/pushaas/workers"
 )
 
-func NewProvisionWorker(config *viper.Viper) workers.ProvisionWorker {
-	return workers.NewProvisionWorker(config)
+func NewProvisionWorker(config *viper.Viper, logger *zap.Logger, machineryServer *machinery.Server, provisioner provisioners.Provisioner) workers.ProvisionWorker {
+	return workers.NewProvisionWorker(config, logger, machineryServer, provisioner)
 }

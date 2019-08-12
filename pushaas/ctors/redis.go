@@ -3,6 +3,9 @@ package ctors
 import (
 	"errors"
 
+	"github.com/RichardKnop/machinery/v1"
+	machineryConfig "github.com/RichardKnop/machinery/v1/config"
+
 	"github.com/go-redis/redis"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -38,4 +41,23 @@ func NewRedisClient(config *viper.Viper, logger *zap.Logger) (redis.UniversalCli
 
 	client := redis.NewClient(options)
 	return client, nil
+}
+
+func NewMachineryServer(config *viper.Viper, logger *zap.Logger) (*machinery.Server, error) {
+	log := logger.Named("machinery")
+	url := getRedisUrl(config)
+
+	var cnf = &machineryConfig.Config{
+		Broker:             url,
+		DefaultQueue:       "machinery_tasks",
+		ResultBackend:      url,
+	}
+
+	server, err := machinery.NewServer(cnf)
+	if err != nil {
+		log.Error("failed to init machinery server", zap.Error(err))
+		return nil, err
+	}
+
+	return server, nil
 }

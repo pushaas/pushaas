@@ -17,10 +17,12 @@ type (
 )
 
 func (p awsEcsProvisioner) Provision(instance *models.Instance) ProvisionResult {
+	p.logger.Info("######## did call Provision")
 	return ProvisionResultSuccess
 }
 
 func (p awsEcsProvisioner) Deprovision(instance *models.Instance) DeprovisionResult {
+	p.logger.Info("######## did call Deprovision")
 	return DeprovisionResultSuccess
 }
 

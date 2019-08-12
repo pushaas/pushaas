@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
@@ -181,10 +182,6 @@ func createRedisServiceDiscovery(svc *servicediscovery.ServiceDiscovery) *servic
 	return output
 }
 
-func deleteRedisServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
-	// TODO implement
-}
-
 func deleteRedisService(svc *ecs.ECS) {
 	input := &ecs.DeleteServiceInput{
 		Cluster: aws.String(clusterName),
@@ -342,10 +339,6 @@ func createPushApiServiceDiscovery(svc *servicediscovery.ServiceDiscovery) *serv
 	fmt.Println("========== push-api - CreateService discovery ==========")
 	fmt.Println(output.GoString())
 	return output
-}
-
-func deletePushApiServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
-	// TODO implement
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -510,8 +503,61 @@ func createPushStreamServiceDiscovery(svc *servicediscovery.ServiceDiscovery) *s
 	return output
 }
 
-func deletePushStreamServiceDiscovery(svc *servicediscovery.ServiceDiscovery) {
-	// TODO implement
+func listPushStreamTasks(svc *ecs.ECS) *ecs.ListTasksOutput {
+	input := &ecs.ListTasksInput{
+		Cluster: aws.String(clusterName),
+		ServiceName: aws.String(pushStreamWithInstance),
+	}
+
+	output, err := svc.ListTasks(input)
+	if err != nil {
+		fmt.Println("========== push-stream - FAILED ListTasks ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-stream - ListTasks ==========")
+	fmt.Println(output.GoString())
+	return output
+}
+
+func describePushStreamTask(svc *ecs.ECS) *ecs.DescribeTasksOutput {
+	listOutput := listPushStreamTasks(svc)
+
+	input := &ecs.DescribeTasksInput{
+		Tasks: []*string{listOutput.TaskArns[0]},
+		Cluster: aws.String(clusterName),
+	}
+
+	output, err := svc.DescribeTasks(input)
+	if err != nil {
+		fmt.Println("========== push-stream - FAILED DescribeTasks ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-stream - DescribeTasks ==========")
+	fmt.Println(output.GoString())
+	return output
+}
+
+func describePushStreamNetworkInterfaceTask(ecsSvc *ecs.ECS, ec2Svc *ec2.EC2) {
+	describeOutput := describePushStreamTask(ecsSvc)
+
+	var eniId *string
+	for _, kv := range describeOutput.Tasks[0].Attachments[0].Details {
+		if *kv.Name == "networkInterfaceId" {
+			eniId = kv.Value
+		}
+	}
+
+	input := &ec2.DescribeNetworkInterfacesInput{
+		NetworkInterfaceIds: []*string{eniId},
+	}
+
+	output, err := ec2Svc.DescribeNetworkInterfaces(input)
+	if err != nil {
+		fmt.Println("========== push-stream - FAILED DescribeNetworkInterfaces ==========")
+		panic(err)
+	}
+	fmt.Println("========== push-stream - DescribeNetworkInterfaces ==========")
+	fmt.Println(output.GoString())
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -566,6 +612,7 @@ func main() {
 	action := os.Getenv("ACTION")
 
 	mySession := session.Must(session.NewSession())
+	ec2Svc := ec2.New(mySession)
 	ecsSvc := ecs.New(mySession)
 	sdSvc := servicediscovery.New(mySession)
 	iamSvc := iam.New(mySession)
@@ -576,14 +623,17 @@ func main() {
 	if action == ActionList {
 		listTaskDescriptions(ecsSvc)
 		listServices(ecsSvc)
+		listPushStreamTasks(ecsSvc)
 		listServiceDiscoveryServices(sdSvc)
 		return
 	}
 
 	if action == ActionDescribe {
-		describeRedisService(ecsSvc)
-		describePushApiService(ecsSvc)
-		describePushStreamService(ecsSvc)
+		//describeRedisService(ecsSvc)
+		//describePushApiService(ecsSvc)
+		//describePushStreamService(ecsSvc)
+		//describePushStreamTask(ecsSvc)
+		describePushStreamNetworkInterfaceTask(ecsSvc, ec2Svc)
 		return
 	}
 

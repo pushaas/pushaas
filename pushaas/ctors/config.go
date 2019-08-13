@@ -69,6 +69,16 @@ func setupFromDefaults(config *viper.Viper, env string) {
 	// provisioner
 	config.SetDefault("provisioner.provider", "aws-ecs")
 
+	// provisioner - aws
+	config.SetDefault("provisioner.aws.region", "us-east-1")
+	config.SetDefault("provisioner.aws.cluster", "pushaas-cluster")
+	config.SetDefault("provisioner.aws.logs-group", "/ecs/pushaas")
+	config.SetDefault("provisioner.aws.logs-stream-prefix", "ecs")
+
+	config.SetDefault("provisioner.aws.image-push-api", "rafaeleyng/push-api:latest") // TODO pass actual tag
+	config.SetDefault("provisioner.aws.image-push-agent", "rafaeleyng/push-agent:latest") // TODO pass actual tag
+	config.SetDefault("provisioner.aws.image-push-stream", "rafaeleyng/push-stream:latest") // TODO pass actual tag
+
 	// redis
 	config.SetDefault("redis.url", "redis://localhost:6379")
 	config.SetDefault("redis.db.instance.prefix", "instance")

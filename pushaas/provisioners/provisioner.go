@@ -16,8 +16,10 @@ type (
 
 const (
 	ProvisionResultSuccess ProvisionResult = iota
+	ProvisionResultFailure
 )
 
 const (
 	DeprovisionResultSuccess DeprovisionResult = iota
+	DeprovisionResultFailure
 )

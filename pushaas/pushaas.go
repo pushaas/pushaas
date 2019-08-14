@@ -9,10 +9,17 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/rafaeleyng/pushaas/pushaas/ctors"
+	"github.com/rafaeleyng/pushaas/pushaas/provisioners"
 	"github.com/rafaeleyng/pushaas/pushaas/workers"
 )
 
-func runApp(logger *zap.Logger, router *gin.Engine, config *viper.Viper, provisionWorker workers.ProvisionWorker) error {
+func runApp(
+	logger *zap.Logger,
+	router *gin.Engine,
+	config *viper.Viper,
+	provisionWorker workers.ProvisionWorker,
+	provisioner provisioners.Provisioner,
+) error {
 	log := logger.Named("runApp")
 
 	provisionWorker.DispatchWorker()

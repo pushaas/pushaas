@@ -3,6 +3,7 @@ module github.com/rafaeleyng/pushaas
 go 1.12
 
 require (
+	cloud.google.com/go v0.36.0
 	github.com/RichardKnop/machinery v1.6.5
 	github.com/aws/aws-sdk-go v1.21.8
 	github.com/fatih/structs v1.1.0

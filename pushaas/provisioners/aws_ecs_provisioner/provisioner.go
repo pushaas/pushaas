@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
@@ -35,6 +36,10 @@ type (
 		provisionerConfig *awsEcsProvisionerConfig
 	}
 )
+
+const ServiceStatusActive = "ACTIVE"
+const ServiceStatusDraining = "DRAINING"
+const ServiceStatusInactive = "INACTIVE"
 
 /////////////////////////////////////////////////////////////////////////////////
 //// service discovery
@@ -71,13 +76,6 @@ type (
 //	}
 //}
 
-//func ignore(
-//	ecsSvc *ecs.ECS,
-//	discovery *servicediscovery.ServiceDiscovery,
-//	iamSvc *iam.IAM,
-//	output *iam.GetRoleOutput,
-//) {}
-//
 //func theMain() {
 //	const ActionList = "list"
 //	const ActionDescribe = "describe"
@@ -85,9 +83,9 @@ type (
 //	const ActionDelete = "delete"
 //	action := os.Getenv("ACTION")
 //
-//	roleOutput := getIamRole(iamSvc)
+//	role := getIamRole(iamSvc)
 //
-//	ignore(ecsSvc, sdSvc, iamSvc, roleOutput)
+//	ignore(ecsSvc, sdSvc, iamSvc, role)
 //
 //	if action == ActionList {
 //		listTaskDescriptions(ecsSvc)
@@ -111,11 +109,11 @@ type (
 //		createRedisService(ecsSvc, redisDiscovery)
 //
 //		pushApiDiscovery := createPushApiServiceDiscovery(sdSvc)
-//		createPushApiTaskDefinition(ecsSvc, roleOutput)
+//		createPushApiTaskDefinition(ecsSvc, role)
 //		createPushApiService(ecsSvc, pushApiDiscovery)
 //
 //		pushStreamDiscovery := createPushStreamServiceDiscovery(sdSvc)
-//		createPushStreamTaskDefinition(ecsSvc, roleOutput)
+//		createPushStreamTaskDefinition(ecsSvc, role)
 //		createPushStreamService(ecsSvc, pushStreamDiscovery)
 //		return
 //	}
@@ -132,72 +130,163 @@ type (
 //	}
 //}
 
-/*
-	===========================================================================
-	implementation
-	===========================================================================
-*/
+type (
+	provisionPushRedisResult struct {
+		serviceDiscovery *servicediscovery.CreateServiceOutput
+		service          *ecs.CreateServiceOutput
+	}
 
-func (p *awsEcsProvisioner) provisionRedis(instance *models.Instance, ecsSvc *ecs.ECS, serviceDiscoverySvc *servicediscovery.ServiceDiscovery) error {
+	provisionPushApiResult struct {
+		serviceDiscovery *servicediscovery.CreateServiceOutput
+		taskDefinition   *ecs.RegisterTaskDefinitionOutput
+		service          *ecs.CreateServiceOutput
+	}
+
+	provisionPushStreamResult struct {
+		serviceDiscovery *servicediscovery.CreateServiceOutput
+		taskDefinition   *ecs.RegisterTaskDefinitionOutput
+		service          *ecs.CreateServiceOutput
+	}
+)
+
+func (p *awsEcsProvisioner) provisionPushRedis(
+	instance *models.Instance,
+	ecsSvc *ecs.ECS,
+	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
+	statusCh chan string,
+) (*provisionPushRedisResult, error) {
 	var err error
 
 	serviceDiscovery, err := createRedisServiceDiscovery(instance, serviceDiscoverySvc, p.provisionerConfig)
 	if err != nil {
-		return errors.New("failed to create redis service discovery service")
+		return nil, errors.New("failed to create push-redis service discovery service")
 	}
 
 	service, err := createRedisService(instance, ecsSvc, serviceDiscovery, p.provisionerConfig)
 	if err != nil {
-		return errors.New("failed to create redis service")
+		return nil, errors.New("failed to create push-redis service")
 	}
 
-	return nil
+	monitorRedisServiceStatus(instance, service, ecsSvc, statusCh, p.provisionerConfig)
+
+	return &provisionPushRedisResult{
+		serviceDiscovery: serviceDiscovery,
+		service:          service,
+	}, nil
 }
 
-func (p *awsEcsProvisioner) provisionPushApi(instance *models.Instance, ecsSvc *ecs.ECS, serviceDiscoverySvc *servicediscovery.ServiceDiscovery, role *iam.GetRoleOutput) error {
+func (p *awsEcsProvisioner) provisionPushStream(
+	instance *models.Instance,
+	ecsSvc *ecs.ECS,
+	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
+	role *iam.GetRoleOutput,
+) (*provisionPushStreamResult, error) {
 	var err error
+
+	taskDefinition, err := createPushStreamTaskDefinition(instance, ecsSvc, role, p.provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to create push-stream task definition")
+	}
+
+	serviceDiscovery, err := createPushStreamServiceDiscovery(instance, serviceDiscoverySvc, p.provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to create push-stream service discovery service")
+	}
+
+	service, err := createPushStreamService(instance, ecsSvc, serviceDiscovery, p.provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to create push-stream service")
+	}
+
+	return &provisionPushStreamResult{
+		serviceDiscovery: serviceDiscovery,
+		taskDefinition:   taskDefinition,
+		service:          service,
+	}, nil
+}
+
+func (p *awsEcsProvisioner) provisionPushApi(
+	instance *models.Instance,
+	ecsSvc *ecs.ECS,
+	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
+	ec2Svc *ec2.EC2,
+	role *iam.GetRoleOutput,
+) (*provisionPushApiResult, error) {
+	var err error
+
+	eni, err := describePushStreamNetworkInterfaceTask(instance, ecsSvc, ec2Svc, p.provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to obtain push-stream public IP to create push-api task definition")
+	}
+
+	taskDefinition, err := createPushApiTaskDefinition(instance, ecsSvc, role, eni, p.provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to create push-api task definition")
+	}
 
 	serviceDiscovery, err := createPushApiServiceDiscovery(instance, serviceDiscoverySvc, p.provisionerConfig)
 	if err != nil {
-		return errors.New("failed to create api service discovery service")
-	}
-
-	taskDefinition, err := createPushApiTaskDefinition(instance, ecsSvc, role, p.provisionerConfig)
-	if err != nil {
-		return errors.New("failed to create api task definition")
+		return nil, errors.New("failed to create push-api service discovery service")
 	}
 
 	service, err := createPushApiService(instance, ecsSvc, serviceDiscovery, p.provisionerConfig)
 	if err != nil {
-		return errors.New("failed to create api service")
+		return nil, errors.New("failed to create push-api service")
 	}
 
-	return nil
+	return &provisionPushApiResult{
+		serviceDiscovery: serviceDiscovery,
+		taskDefinition:   taskDefinition,
+		service:          service,
+	}, nil
 }
 
 func (p *awsEcsProvisioner) Provision(instance *models.Instance) provisioners.ProvisionResult {
-	var err error
-	p.logger.Info("######## did call Provision")
+	p.logger.Info("starting provision for instance", zap.Any("instance", instance))
 
 	iamSvc := iam.New(p.awsSession)
 	ecsSvc := ecs.New(p.awsSession)
+	ec2Svc := ec2.New(p.awsSession)
 	serviceDiscoverySvc := servicediscovery.New(p.awsSession)
-	//ec2Svc := ec2.New(p.awsSession)
 
+	var err error
 	role, err := getIamRole(iamSvc)
 	if err != nil {
+		p.logger.Error("failed while provisioning instance, failed to get iam role", zap.Any("instance", instance), zap.Error(err))
 		return provisioners.ProvisionResultFailure
 	}
 
-	err = p.provisionRedis(instance, ecsSvc, serviceDiscoverySvc)
+	chRedis := make(chan string)
+	resultPushRedis, err := p.provisionPushRedis(instance, ecsSvc, serviceDiscoverySvc, chRedis)
 	if err != nil {
+		p.logger.Error("failed while provisioning instance, failed to provision push-redis", zap.Any("instance", instance), zap.Error(err))
+		return provisioners.ProvisionResultFailure
+	}
+	redisStatus := <- chRedis
+	p.logger.Info("################## redis", zap.String("redisStatus", redisStatus))
+	//if redisStatus != ServiceStatusActive {
+	//
+	//}
+
+	resultPushStream, err := p.provisionPushStream(instance, ecsSvc, serviceDiscoverySvc, role)
+	if err != nil {
+		p.logger.Error("failed while provisioning instance, failed to provision push-stream", zap.Any("instance", instance))
 		return provisioners.ProvisionResultFailure
 	}
 
-	err = p.provisionPushApi(instance, ecsSvc, serviceDiscoverySvc, role)
+	resultPushApi, err := p.provisionPushApi(instance, ecsSvc, serviceDiscoverySvc, ec2Svc, role)
 	if err != nil {
+		p.logger.Error("failed while provisioning instance, failed to provision push-api", zap.Any("instance", instance), zap.Error(err))
 		return provisioners.ProvisionResultFailure
 	}
+
+	p.logger.Info(
+		"finishing provision for instance",
+		zap.Any("instance", instance),
+		zap.Any("resultPushRedis", resultPushRedis),
+		zap.Any("resultPushStream", resultPushStream),
+		zap.Any("resultPushApi", resultPushApi),
+	)
 
 	return provisioners.ProvisionResultSuccess
 }
@@ -207,9 +296,7 @@ func (p *awsEcsProvisioner) deprovisionRedis(instance *models.Instance) {
 }
 
 func (p *awsEcsProvisioner) Deprovision(instance *models.Instance) provisioners.DeprovisionResult {
-	p.logger.Info("######## did call Deprovision")
-
-	p.deprovisionRedis(instance)
+	p.logger.Info("starting deprovision for instance", zap.Any("instance", instance))
 
 	return provisioners.DeprovisionResultSuccess
 }

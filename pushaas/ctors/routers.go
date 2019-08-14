@@ -53,6 +53,8 @@ func NewGinRouter(
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	authMiddleware := getAuthMiddleware(config, logger)
+
 	baseRouter := gin.Default()
 
 	g(baseRouter, "/", func(r gin.IRouter) {
@@ -60,7 +62,7 @@ func NewGinRouter(
 	})
 
 	g(baseRouter, "/api", func(r gin.IRouter) {
-		r.Use(getAuthMiddleware(config, logger))
+		r.Use(authMiddleware)
 
 		g(r, "/", func(r gin.IRouter) {
 			apiRootRouter.SetupRoutes(r)

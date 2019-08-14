@@ -1,6 +1,8 @@
 package aws_ecs_provisioner
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
@@ -11,9 +13,14 @@ import (
 const pushRedis = "push-redis"
 
 func pushRedisWithInstance(instanceName string) string {
-	return pushRedis + "-" + instanceName
+	return fmt.Sprintf("%s-%s", pushRedis, instanceName)
 }
 
+/*
+	===========================================================================
+	provision
+	===========================================================================
+*/
 func createRedisServiceDiscovery(
 	instance *models.Instance,
 	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
@@ -63,6 +70,11 @@ func createRedisService(
 	})
 }
 
+/*
+	===========================================================================
+	deprovision
+	===========================================================================
+*/
 //func deleteRedisService(svc *ecs.ECS) {
 //	input := &ecs.DeleteServiceInput{
 //		Cluster: aws.String(clusterName),
@@ -78,3 +90,32 @@ func createRedisService(
 //	fmt.Println("========== redis - DeleteService ==========")
 //	fmt.Println(output.GoString())
 //}
+
+/*
+	===========================================================================
+	other
+	===========================================================================
+*/
+func describePushRedisService(
+	instance *models.Instance,
+	ecsSvc *ecs.ECS,
+	provisionerConfig *awsEcsProvisionerConfig,
+) (*ecs.DescribeServicesOutput, error) {
+	return ecsSvc.DescribeServices(&ecs.DescribeServicesInput{
+		Cluster:  aws.String(provisionerConfig.cluster),
+		Services: []*string{aws.String(pushStreamWithInstance(instance.Name))},
+	})
+}
+
+// TODO implement
+func monitorRedisServiceStatus(
+	instance *models.Instance,
+	service *ecs.CreateServiceOutput,
+	ecsSvc *ecs.ECS,
+	statusCh chan string,
+	provisionerConfig *awsEcsProvisionerConfig,
+) {
+	//ecsSvc.DescribeTasks()
+
+
+}

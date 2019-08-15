@@ -130,6 +130,39 @@ const ServiceStatusInactive = "INACTIVE"
 //	}
 //}
 
+func (p *awsEcsProvisioner) Test() {
+	//instance := &models.Instance{
+	//	Name: "instance-33",
+	//}
+	//
+	//ecsSvc := ecs.New(p.awsSession)
+	//
+	///*
+	//	creation
+	// */
+	//createService, err := createRedisService(instance, ecsSvc, p.provisionerConfig)
+	//if err != nil {
+	//	p.logger.Error("######## fail createService", zap.Error(err))
+	//	return
+	//}
+	//p.logger.Info("######## success createService", zap.Any("createService", createService))
+	//
+	///*
+	//	status
+	// */
+	//for {
+	//	describeService, err := describePushRedisService(instance, ecsSvc, p.provisionerConfig)
+	//	if err != nil {
+	//		p.logger.Error("######## fail describeService", zap.Error(err))
+	//		return
+	//	}
+	//	p.logger.Info("######## success describeService", zap.Any("describeService", describeService.Services))
+	//	time.Sleep(5 * time.Second)
+	//	describeService.Services[0].Count
+	//}
+
+}
+
 type (
 	provisionPushRedisResult struct {
 		serviceDiscovery *servicediscovery.CreateServiceOutput
@@ -162,16 +195,18 @@ func (p *awsEcsProvisioner) provisionPushRedis(
 		return nil, errors.New("failed to create push-redis service discovery service")
 	}
 
-	service, err := createRedisService(instance, ecsSvc, serviceDiscovery, p.provisionerConfig)
-	if err != nil {
-		return nil, errors.New("failed to create push-redis service")
-	}
+	// TODO
+	//service, err := createRedisService(instance, ecsSvc, serviceDiscovery, p.provisionerConfig)
+	//if err != nil {
+	//	return nil, errors.New("failed to create push-redis service")
+	//}
 
-	monitorRedisServiceStatus(instance, service, ecsSvc, statusCh, p.provisionerConfig)
+	// TODO
+	//monitorRedisServiceStatus(instance, service, ecsSvc, statusCh, p.provisionerConfig)
 
 	return &provisionPushRedisResult{
 		serviceDiscovery: serviceDiscovery,
-		service:          service,
+		//service:          service,
 	}, nil
 }
 
@@ -262,11 +297,11 @@ func (p *awsEcsProvisioner) Provision(instance *models.Instance) provisioners.Pr
 		p.logger.Error("failed while provisioning instance, failed to provision push-redis", zap.Any("instance", instance), zap.Error(err))
 		return provisioners.ProvisionResultFailure
 	}
-	redisStatus := <- chRedis
-	p.logger.Info("################## redis", zap.String("redisStatus", redisStatus))
-	//if redisStatus != ServiceStatusActive {
-	//
-	//}
+	//redisStatus := <- chRedis
+	//p.logger.Info("################## redis", zap.String("redisStatus", redisStatus))
+	////if redisStatus != ServiceStatusActive {
+	////
+	////}
 
 	resultPushStream, err := p.provisionPushStream(instance, ecsSvc, serviceDiscoverySvc, role)
 	if err != nil {

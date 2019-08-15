@@ -46,7 +46,7 @@ func createRedisServiceDiscovery(
 func createRedisService(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
-	redisDiscovery *servicediscovery.CreateServiceOutput,
+	//redisDiscovery *servicediscovery.CreateServiceOutput,
 	provisionerConfig *awsEcsProvisionerConfig,
 ) (*ecs.CreateServiceOutput, error) {
 	return ecsSvc.CreateService(&ecs.CreateServiceInput{
@@ -62,11 +62,12 @@ func createRedisService(
 				Subnets:        []*string{aws.String(provisionerConfig.subnet)},
 			},
 		},
-		ServiceRegistries: []*ecs.ServiceRegistry{
-			{
-				RegistryArn: redisDiscovery.Service.Arn,
-			},
-		},
+		// TODO
+		//ServiceRegistries: []*ecs.ServiceRegistry{
+		//	{
+		//		RegistryArn: redisDiscovery.Service.Arn,
+		//	},
+		//},
 	})
 }
 
@@ -103,19 +104,6 @@ func describePushRedisService(
 ) (*ecs.DescribeServicesOutput, error) {
 	return ecsSvc.DescribeServices(&ecs.DescribeServicesInput{
 		Cluster:  aws.String(provisionerConfig.cluster),
-		Services: []*string{aws.String(pushStreamWithInstance(instance.Name))},
+		Services: []*string{aws.String(pushRedisWithInstance(instance.Name))},
 	})
-}
-
-// TODO implement
-func monitorRedisServiceStatus(
-	instance *models.Instance,
-	service *ecs.CreateServiceOutput,
-	ecsSvc *ecs.ECS,
-	statusCh chan string,
-	provisionerConfig *awsEcsProvisionerConfig,
-) {
-	//ecsSvc.DescribeTasks()
-
-
 }

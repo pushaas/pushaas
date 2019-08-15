@@ -11,6 +11,8 @@ type (
 	Provisioner interface {
 		Provision(*models.Instance) ProvisionResult
 		Deprovision(*models.Instance) DeprovisionResult
+		// TODO remove
+		Test()
 	}
 )
 

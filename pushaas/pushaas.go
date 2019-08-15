@@ -23,6 +23,7 @@ func runApp(
 	log := logger.Named("runApp")
 
 	provisionWorker.DispatchWorker()
+	//provisioner.Test()
 
 	err := router.Run(fmt.Sprintf(":%s", config.GetString("server.port")))
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-siris/siris/core/errors"
 	"github.com/spf13/viper"
@@ -78,6 +79,9 @@ func setupFromDefaults(config *viper.Viper, env string) {
 	config.SetDefault("provisioner.ecs.image-push-api", "rafaeleyng/push-api:latest") // TODO pass actual tag
 	config.SetDefault("provisioner.ecs.image-push-agent", "rafaeleyng/push-agent:latest") // TODO pass actual tag
 	config.SetDefault("provisioner.ecs.image-push-stream", "rafaeleyng/push-stream:latest") // TODO pass actual tag
+
+	config.SetDefault("provisioner.ecs.attempts", 10)
+	config.SetDefault("provisioner.ecs.interval", time.Duration(5 * time.Second))
 
 	// redis
 	config.SetDefault("redis.url", "redis://localhost:6379")

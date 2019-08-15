@@ -15,9 +15,11 @@ import (
 
 const pushApi = "push-api"
 
+
 type (
 	EcsPushApiProvisioner interface {
-		Provision(*models.Instance, *ecs.ECS, *servicediscovery.ServiceDiscovery, *ec2.EC2, *iam.GetRoleOutput, *ecsProvisionerConfig) (*provisionPushApiResult, error)
+		Provision(*models.Instance, *ecs.ECS, *servicediscovery.ServiceDiscovery, *ec2.EC2, *iam.GetRoleOutput, *ec2.DescribeNetworkInterfacesOutput, *ecsProvisionerConfig) (*provisionPushApiResult, error)
+		DescribeService(*models.Instance, *ecs.ECS, *ecsProvisionerConfig) (*ecs.DescribeServicesOutput, error)
 	}
 
 	ecsPushApiProvisioner struct {}
@@ -32,32 +34,28 @@ func pushApiWithInstance(instanceName string) string {
 	provision
 	===========================================================================
 */
-func (e *ecsPushApiProvisioner) Provision(
+func (p *ecsPushApiProvisioner) Provision(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
 	ec2Svc *ec2.EC2,
 	role *iam.GetRoleOutput,
+	eni *ec2.DescribeNetworkInterfacesOutput,
 	provisionerConfig *ecsProvisionerConfig,
 ) (*provisionPushApiResult, error) {
 	var err error
 
-	eni, err := describePushStreamNetworkInterfaceTask(instance, ecsSvc, ec2Svc, provisionerConfig)
-	if err != nil {
-		return nil, errors.New("failed to obtain push-stream public IP to create push-api task definition")
-	}
-
-	taskDefinition, err := createPushApiTaskDefinition(instance, ecsSvc, role, eni, provisionerConfig)
+	taskDefinition, err := p.createPushApiTaskDefinition(instance, ecsSvc, role, eni, provisionerConfig)
 	if err != nil {
 		return nil, errors.New("failed to create push-api task definition")
 	}
 
-	serviceDiscovery, err := createPushApiServiceDiscovery(instance, serviceDiscoverySvc, provisionerConfig)
+	serviceDiscovery, err := p.createPushApiServiceDiscovery(instance, serviceDiscoverySvc, provisionerConfig)
 	if err != nil {
 		return nil, errors.New("failed to create push-api service discovery service")
 	}
 
-	service, err := createPushApiService(instance, ecsSvc, serviceDiscovery, provisionerConfig)
+	service, err := p.createPushApiService(instance, ecsSvc, serviceDiscovery, provisionerConfig)
 	if err != nil {
 		return nil, errors.New("failed to create push-api service")
 	}
@@ -69,8 +67,7 @@ func (e *ecsPushApiProvisioner) Provision(
 	}, nil
 }
 
-
-func createPushApiTaskDefinition(
+func (p *ecsPushApiProvisioner) createPushApiTaskDefinition(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	role *iam.GetRoleOutput,
@@ -122,7 +119,7 @@ func createPushApiTaskDefinition(
 	})
 }
 
-func createPushApiServiceDiscovery(
+func (p *ecsPushApiProvisioner) createPushApiServiceDiscovery(
 	instance *models.Instance,
 	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
 	provisionerConfig *ecsProvisionerConfig,
@@ -144,7 +141,7 @@ func createPushApiServiceDiscovery(
 	})
 }
 
-func createPushApiService(
+func (p *ecsPushApiProvisioner) createPushApiService(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	serviceDiscovery *servicediscovery.CreateServiceOutput,
@@ -197,20 +194,16 @@ func createPushApiService(
 	other
 	===========================================================================
 */
-//func describePushApiService(svc *ecs.ECS) {
-//	input := &ecs.DescribeServicesInput{
-//		Cluster: aws.String(clusterName),
-//		Services: []*string{aws.String(pushApiWithInstance)},
-//	}
-//
-//	output, err := svc.DescribeServices(input)
-//	if err != nil {
-//		fmt.Println("========== push-api - FAILED DescribeServices ==========")
-//		panic(err)
-//	}
-//	fmt.Println("========== push-api - DescribeServices ==========")
-//	fmt.Println(output.GoString())
-//}
+func (p *ecsPushApiProvisioner) DescribeService(
+	instance *models.Instance,
+	ecsSvc *ecs.ECS,
+	provisionerConfig *ecsProvisionerConfig,
+) (*ecs.DescribeServicesOutput, error) {
+	return ecsSvc.DescribeServices(&ecs.DescribeServicesInput{
+		Cluster:  aws.String(provisionerConfig.cluster),
+		Services: []*string{aws.String(pushRedisWithInstance(instance.Name))},
+	})
+}
 
 func NewEcsPushApiProvisioner() EcsPushApiProvisioner {
 	return &ecsPushApiProvisioner{}

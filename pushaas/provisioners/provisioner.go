@@ -11,8 +11,6 @@ type (
 	PushServiceProvisioner interface {
 		Provision(*models.Instance) PushServiceProvisionResult
 		Deprovision(*models.Instance) PushServiceDeprovisionResult
-		// TODO remove
-		Test()
 	}
 )
 

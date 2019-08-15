@@ -19,6 +19,8 @@ const pushStream = "push-stream"
 type (
 	EcsPushStreamProvisioner interface {
 		Provision(*models.Instance, *ecs.ECS, *servicediscovery.ServiceDiscovery, *iam.GetRoleOutput, *ecsProvisionerConfig) (*provisionPushStreamResult, error)
+		DescribeService(*models.Instance, *ecs.ECS, *ecsProvisionerConfig) (*ecs.DescribeServicesOutput, error)
+		DescribePushStreamTaskNetworkInterface(instance *models.Instance, ecsSvc *ecs.ECS, ec2Svc *ec2.EC2, provisionerConfig *ecsProvisionerConfig) (*ec2.DescribeNetworkInterfacesOutput, error)
 	}
 
 	ecsPushStreamProvisioner struct {}
@@ -33,7 +35,7 @@ func pushStreamWithInstance(instanceName string) string {
 	provision
 	===========================================================================
 */
-func (e *ecsPushStreamProvisioner) Provision(
+func (p *ecsPushStreamProvisioner) Provision(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
@@ -42,17 +44,17 @@ func (e *ecsPushStreamProvisioner) Provision(
 ) (*provisionPushStreamResult, error) {
 	var err error
 
-	taskDefinition, err := createPushStreamTaskDefinition(instance, ecsSvc, role, provisionerConfig)
+	taskDefinition, err := p.createPushStreamTaskDefinition(instance, ecsSvc, role, provisionerConfig)
 	if err != nil {
 		return nil, errors.New("failed to create push-stream task definition")
 	}
 
-	serviceDiscovery, err := createPushStreamServiceDiscovery(instance, serviceDiscoverySvc, provisionerConfig)
+	serviceDiscovery, err := p.createPushStreamServiceDiscovery(instance, serviceDiscoverySvc, provisionerConfig)
 	if err != nil {
 		return nil, errors.New("failed to create push-stream service discovery service")
 	}
 
-	service, err := createPushStreamService(instance, ecsSvc, serviceDiscovery, provisionerConfig)
+	service, err := p.createPushStreamService(instance, ecsSvc, serviceDiscovery, provisionerConfig)
 	if err != nil {
 		return nil, errors.New("failed to create push-stream service")
 	}
@@ -64,7 +66,7 @@ func (e *ecsPushStreamProvisioner) Provision(
 	}, nil
 }
 
-func createPushStreamTaskDefinition(
+func (p *ecsPushStreamProvisioner) createPushStreamTaskDefinition(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	role *iam.GetRoleOutput,
@@ -132,7 +134,7 @@ func createPushStreamTaskDefinition(
 	})
 }
 
-func createPushStreamServiceDiscovery(
+func (p *ecsPushStreamProvisioner) createPushStreamServiceDiscovery(
 	instance *models.Instance,
 	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
 	provisionerConfig *ecsProvisionerConfig,
@@ -154,7 +156,7 @@ func createPushStreamServiceDiscovery(
 	})
 }
 
-func createPushStreamService(
+func (p *ecsPushStreamProvisioner) createPushStreamService(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	pushStreamDiscovery *servicediscovery.CreateServiceOutput,
@@ -207,7 +209,7 @@ func createPushStreamService(
 	other
 	===========================================================================
 */
-func listPushStreamTasks(
+func (p *ecsPushStreamProvisioner) listPushStreamTasks(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	provisionerConfig *ecsProvisionerConfig,
@@ -218,14 +220,18 @@ func listPushStreamTasks(
 	})
 }
 
-func describePushStreamTasks(
+func (p *ecsPushStreamProvisioner) describePushStreamTasks(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	provisionerConfig *ecsProvisionerConfig,
 ) (*ecs.DescribeTasksOutput, error) {
-	listOutput, err := listPushStreamTasks(instance, ecsSvc, provisionerConfig)
+	listOutput, err := p.listPushStreamTasks(instance, ecsSvc, provisionerConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(listOutput.TaskArns) == 0 {
+		return nil, errors.New(fmt.Sprintf("[describePushStreamTasks] no tasks in service %s", pushStreamWithInstance(instance.Name)))
 	}
 
 	return ecsSvc.DescribeTasks(&ecs.DescribeTasksInput{
@@ -234,13 +240,20 @@ func describePushStreamTasks(
 	})
 }
 
-func describePushStreamNetworkInterfaceTask(
+func (p *ecsPushStreamProvisioner) DescribePushStreamTaskNetworkInterface(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	ec2Svc *ec2.EC2,
 	provisionerConfig *ecsProvisionerConfig,
 ) (*ec2.DescribeNetworkInterfacesOutput, error) {
-	describeOutput, _ := describePushStreamTasks(instance, ecsSvc, provisionerConfig)
+	describeOutput, err := p.describePushStreamTasks(instance, ecsSvc, provisionerConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(describeOutput.Tasks) == 0 || len(describeOutput.Tasks[0].Attachments) == 0 {
+		return nil, errors.New(fmt.Sprintf("[DescribePushStreamTaskNetworkInterface] no tasks or attachments found for service %s", pushStreamWithInstance(instance.Name)))
+	}
 
 	var eniId *string
 	for _, kv := range describeOutput.Tasks[0].Attachments[0].Details {
@@ -254,20 +267,16 @@ func describePushStreamNetworkInterfaceTask(
 	})
 }
 
-//func describePushStreamService(svc *ecs.ECS) {
-//	input := &ecs.DescribeServicesInput{
-//		Cluster:  aws.String(clusterName),
-//		Services: []*string{aws.String(pushStreamWithInstance(instance.Name))},
-//	}
-//
-//	output, err := svc.DescribeServices(input)
-//	if err != nil {
-//		fmt.Println("========== push-stream - FAILED DescribeServices ==========")
-//		panic(err)
-//	}
-//	fmt.Println("========== push-stream - DescribeServices ==========")
-//	fmt.Println(output.GoString())
-//}
+func (p *ecsPushStreamProvisioner) DescribeService(
+	instance *models.Instance,
+	ecsSvc *ecs.ECS,
+	provisionerConfig *ecsProvisionerConfig,
+) (*ecs.DescribeServicesOutput, error) {
+	return ecsSvc.DescribeServices(&ecs.DescribeServicesInput{
+		Cluster:  aws.String(provisionerConfig.cluster),
+		Services: []*string{aws.String(pushStreamWithInstance(instance.Name))},
+	})
+}
 
 func NewEcsPushStreamProvisioner() EcsPushStreamProvisioner {
 	return &ecsPushStreamProvisioner{}

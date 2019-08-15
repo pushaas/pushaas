@@ -13,9 +13,11 @@ import (
 
 const pushRedis = "push-redis"
 
+
 type (
 	EcsPushRedisProvisioner interface {
 		Provision(*models.Instance, *ecs.ECS, *servicediscovery.ServiceDiscovery, *ecsProvisionerConfig) (*provisionPushRedisResult, error)
+		DescribeService(*models.Instance, *ecs.ECS, *ecsProvisionerConfig) (*ecs.DescribeServicesOutput, error)
 	}
 
 	ecsPushRedisProvisioner struct {}
@@ -30,7 +32,12 @@ func pushRedisWithInstance(instanceName string) string {
 	provision
 	===========================================================================
 */
-func (p *ecsPushRedisProvisioner) Provision(instance *models.Instance, ecsSvc *ecs.ECS, serviceDiscoverySvc *servicediscovery.ServiceDiscovery, provisionerConfig *ecsProvisionerConfig) (*provisionPushRedisResult, error) {
+func (p *ecsPushRedisProvisioner) Provision(
+	instance *models.Instance,
+	ecsSvc *ecs.ECS,
+	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
+	provisionerConfig *ecsProvisionerConfig,
+) (*provisionPushRedisResult, error) {
 	var err error
 
 	serviceDiscovery, err := p.createRedisServiceDiscovery(instance, serviceDiscoverySvc, provisionerConfig)

@@ -21,7 +21,7 @@ type (
 		machineryServer     *machinery.Server
 		provisionTaskName   string
 		deprovisionTaskName string
-		provisioner         provisioners.Provisioner
+		provisioner         provisioners.PushServiceProvisioner
 		enabled             bool
 		workersEnabled      bool
 	}
@@ -83,7 +83,7 @@ func (w *provisionWorker) DispatchWorker() {
 	}
 }
 
-func NewProvisionWorker(config *viper.Viper, logger *zap.Logger, machineryServer *machinery.Server, provisioner provisioners.Provisioner) ProvisionWorker {
+func NewProvisionWorker(config *viper.Viper, logger *zap.Logger, machineryServer *machinery.Server, provisioner provisioners.PushServiceProvisioner) ProvisionWorker {
 	enabled := config.GetBool("workers.provision.enabled")
 	workersEnabled := config.GetBool("workers.enabled")
 

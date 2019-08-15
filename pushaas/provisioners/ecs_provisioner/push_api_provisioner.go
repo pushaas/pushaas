@@ -1,6 +1,7 @@
-package aws_ecs_provisioner
+package ecs_provisioner
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -14,6 +15,14 @@ import (
 
 const pushApi = "push-api"
 
+type (
+	EcsPushApiProvisioner interface {
+		Provision(*models.Instance, *ecs.ECS, *servicediscovery.ServiceDiscovery, *ec2.EC2, *iam.GetRoleOutput, *ecsProvisionerConfig) (*provisionPushApiResult, error)
+	}
+
+	ecsPushApiProvisioner struct {}
+)
+
 func pushApiWithInstance(instanceName string) string {
 	return fmt.Sprintf("%s-%s", pushApi, instanceName)
 }
@@ -23,12 +32,50 @@ func pushApiWithInstance(instanceName string) string {
 	provision
 	===========================================================================
 */
+func (e *ecsPushApiProvisioner) Provision(
+	instance *models.Instance,
+	ecsSvc *ecs.ECS,
+	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
+	ec2Svc *ec2.EC2,
+	role *iam.GetRoleOutput,
+	provisionerConfig *ecsProvisionerConfig,
+) (*provisionPushApiResult, error) {
+	var err error
+
+	eni, err := describePushStreamNetworkInterfaceTask(instance, ecsSvc, ec2Svc, provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to obtain push-stream public IP to create push-api task definition")
+	}
+
+	taskDefinition, err := createPushApiTaskDefinition(instance, ecsSvc, role, eni, provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to create push-api task definition")
+	}
+
+	serviceDiscovery, err := createPushApiServiceDiscovery(instance, serviceDiscoverySvc, provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to create push-api service discovery service")
+	}
+
+	service, err := createPushApiService(instance, ecsSvc, serviceDiscovery, provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to create push-api service")
+	}
+
+	return &provisionPushApiResult{
+		serviceDiscovery: serviceDiscovery,
+		taskDefinition:   taskDefinition,
+		service:          service,
+	}, nil
+}
+
+
 func createPushApiTaskDefinition(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	role *iam.GetRoleOutput,
 	eni *ec2.DescribeNetworkInterfacesOutput,
-	provisionerConfig *awsEcsProvisionerConfig,
+	provisionerConfig *ecsProvisionerConfig,
 ) (*ecs.RegisterTaskDefinitionOutput, error) {
 	// TODO - technical debt
 	pushStreamPublicIp := &eni.NetworkInterfaces[0].Association.PublicIp
@@ -78,7 +125,7 @@ func createPushApiTaskDefinition(
 func createPushApiServiceDiscovery(
 	instance *models.Instance,
 	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
-	provisionerConfig *awsEcsProvisionerConfig,
+	provisionerConfig *ecsProvisionerConfig,
 ) (*servicediscovery.CreateServiceOutput, error) {
 	return serviceDiscoverySvc.CreateService(&servicediscovery.CreateServiceInput{
 		Name:        aws.String(pushApiWithInstance(instance.Name)),
@@ -101,7 +148,7 @@ func createPushApiService(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	serviceDiscovery *servicediscovery.CreateServiceOutput,
-	provisionerConfig *awsEcsProvisionerConfig,
+	provisionerConfig *ecsProvisionerConfig,
 ) (*ecs.CreateServiceOutput, error) {
 	return ecsSvc.CreateService(&ecs.CreateServiceInput{
 		Cluster:        aws.String(provisionerConfig.cluster),
@@ -164,3 +211,7 @@ func createPushApiService(
 //	fmt.Println("========== push-api - DescribeServices ==========")
 //	fmt.Println(output.GoString())
 //}
+
+func NewEcsPushApiProvisioner() EcsPushApiProvisioner {
+	return &ecsPushApiProvisioner{}
+}

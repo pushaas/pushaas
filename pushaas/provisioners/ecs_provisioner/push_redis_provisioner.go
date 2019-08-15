@@ -1,6 +1,7 @@
-package aws_ecs_provisioner
+package ecs_provisioner
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -12,6 +13,14 @@ import (
 
 const pushRedis = "push-redis"
 
+type (
+	EcsPushRedisProvisioner interface {
+		Provision(*models.Instance, *ecs.ECS, *servicediscovery.ServiceDiscovery, *ecsProvisionerConfig) (*provisionPushRedisResult, error)
+	}
+
+	ecsPushRedisProvisioner struct {}
+)
+
 func pushRedisWithInstance(instanceName string) string {
 	return fmt.Sprintf("%s-%s", pushRedis, instanceName)
 }
@@ -21,10 +30,29 @@ func pushRedisWithInstance(instanceName string) string {
 	provision
 	===========================================================================
 */
-func createRedisServiceDiscovery(
+func (p *ecsPushRedisProvisioner) Provision(instance *models.Instance, ecsSvc *ecs.ECS, serviceDiscoverySvc *servicediscovery.ServiceDiscovery, provisionerConfig *ecsProvisionerConfig) (*provisionPushRedisResult, error) {
+	var err error
+
+	serviceDiscovery, err := p.createRedisServiceDiscovery(instance, serviceDiscoverySvc, provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to create push-redis service discovery service")
+	}
+
+	service, err := p.createRedisService(instance, ecsSvc, serviceDiscovery, provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to create push-redis service")
+	}
+
+	return &provisionPushRedisResult{
+		serviceDiscovery: serviceDiscovery,
+		service:          service,
+	}, nil
+}
+
+func (p *ecsPushRedisProvisioner) createRedisServiceDiscovery(
 	instance *models.Instance,
 	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
-	provisionerConfig *awsEcsProvisionerConfig,
+	provisionerConfig *ecsProvisionerConfig,
 ) (*servicediscovery.CreateServiceOutput, error) {
 	return serviceDiscoverySvc.CreateService(&servicediscovery.CreateServiceInput{
 		Name:        aws.String(pushRedisWithInstance(instance.Name)),
@@ -43,11 +71,11 @@ func createRedisServiceDiscovery(
 	})
 }
 
-func createRedisService(
+func (p *ecsPushRedisProvisioner) createRedisService(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
-	//redisDiscovery *servicediscovery.CreateServiceOutput,
-	provisionerConfig *awsEcsProvisionerConfig,
+	redisDiscovery *servicediscovery.CreateServiceOutput,
+	provisionerConfig *ecsProvisionerConfig,
 ) (*ecs.CreateServiceOutput, error) {
 	return ecsSvc.CreateService(&ecs.CreateServiceInput{
 		Cluster:        aws.String(provisionerConfig.cluster),
@@ -62,12 +90,11 @@ func createRedisService(
 				Subnets:        []*string{aws.String(provisionerConfig.subnet)},
 			},
 		},
-		// TODO
-		//ServiceRegistries: []*ecs.ServiceRegistry{
-		//	{
-		//		RegistryArn: redisDiscovery.Service.Arn,
-		//	},
-		//},
+		ServiceRegistries: []*ecs.ServiceRegistry{
+			{
+				RegistryArn: redisDiscovery.Service.Arn,
+			},
+		},
 	})
 }
 
@@ -97,13 +124,17 @@ func createRedisService(
 	other
 	===========================================================================
 */
-func describePushRedisService(
+func (p *ecsPushRedisProvisioner) DescribeService(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
-	provisionerConfig *awsEcsProvisionerConfig,
+	provisionerConfig *ecsProvisionerConfig,
 ) (*ecs.DescribeServicesOutput, error) {
 	return ecsSvc.DescribeServices(&ecs.DescribeServicesInput{
 		Cluster:  aws.String(provisionerConfig.cluster),
 		Services: []*string{aws.String(pushRedisWithInstance(instance.Name))},
 	})
+}
+
+func NewEcsPushRedisProvisioner() EcsPushRedisProvisioner {
+	return &ecsPushRedisProvisioner{}
 }

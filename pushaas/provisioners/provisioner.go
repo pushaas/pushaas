@@ -5,23 +5,23 @@ import (
 )
 
 type (
-	ProvisionResult   int
-	DeprovisionResult int
+	PushServiceProvisionResult   int
+	PushServiceDeprovisionResult int
 
-	Provisioner interface {
-		Provision(*models.Instance) ProvisionResult
-		Deprovision(*models.Instance) DeprovisionResult
+	PushServiceProvisioner interface {
+		Provision(*models.Instance) PushServiceProvisionResult
+		Deprovision(*models.Instance) PushServiceDeprovisionResult
 		// TODO remove
 		Test()
 	}
 )
 
 const (
-	ProvisionResultSuccess ProvisionResult = iota
-	ProvisionResultFailure
+	PushServiceProvisionResultSuccess PushServiceProvisionResult = iota
+	PushServiceProvisionResultFailure
 )
 
 const (
-	DeprovisionResultSuccess DeprovisionResult = iota
-	DeprovisionResultFailure
+	PushServiceDeprovisionResultSuccess PushServiceDeprovisionResult = iota
+	PushServiceDeprovisionResultFailure
 )

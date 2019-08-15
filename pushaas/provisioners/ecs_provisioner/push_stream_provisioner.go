@@ -1,6 +1,7 @@
-package aws_ecs_provisioner
+package ecs_provisioner
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -15,6 +16,14 @@ import (
 const pushAgent = "push-agent"
 const pushStream = "push-stream"
 
+type (
+	EcsPushStreamProvisioner interface {
+		Provision(*models.Instance, *ecs.ECS, *servicediscovery.ServiceDiscovery, *iam.GetRoleOutput, *ecsProvisionerConfig) (*provisionPushStreamResult, error)
+	}
+
+	ecsPushStreamProvisioner struct {}
+)
+
 func pushStreamWithInstance(instanceName string) string {
 	return fmt.Sprintf("%s-%s", pushStream, instanceName)
 }
@@ -24,11 +33,42 @@ func pushStreamWithInstance(instanceName string) string {
 	provision
 	===========================================================================
 */
+func (e *ecsPushStreamProvisioner) Provision(
+	instance *models.Instance,
+	ecsSvc *ecs.ECS,
+	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
+	role *iam.GetRoleOutput,
+	provisionerConfig *ecsProvisionerConfig,
+) (*provisionPushStreamResult, error) {
+	var err error
+
+	taskDefinition, err := createPushStreamTaskDefinition(instance, ecsSvc, role, provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to create push-stream task definition")
+	}
+
+	serviceDiscovery, err := createPushStreamServiceDiscovery(instance, serviceDiscoverySvc, provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to create push-stream service discovery service")
+	}
+
+	service, err := createPushStreamService(instance, ecsSvc, serviceDiscovery, provisionerConfig)
+	if err != nil {
+		return nil, errors.New("failed to create push-stream service")
+	}
+
+	return &provisionPushStreamResult{
+		serviceDiscovery: serviceDiscovery,
+		taskDefinition:   taskDefinition,
+		service:          service,
+	}, nil
+}
+
 func createPushStreamTaskDefinition(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	role *iam.GetRoleOutput,
-	provisionerConfig *awsEcsProvisionerConfig,
+	provisionerConfig *ecsProvisionerConfig,
 ) (*ecs.RegisterTaskDefinitionOutput, error) {
 	return ecsSvc.RegisterTaskDefinition(&ecs.RegisterTaskDefinitionInput{
 		Family:                  aws.String(pushStreamWithInstance(instance.Name)),
@@ -95,7 +135,7 @@ func createPushStreamTaskDefinition(
 func createPushStreamServiceDiscovery(
 	instance *models.Instance,
 	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
-	provisionerConfig *awsEcsProvisionerConfig,
+	provisionerConfig *ecsProvisionerConfig,
 ) (*servicediscovery.CreateServiceOutput, error) {
 	return serviceDiscoverySvc.CreateService(&servicediscovery.CreateServiceInput{
 		Name:        aws.String(pushStreamWithInstance(instance.Name)),
@@ -118,7 +158,7 @@ func createPushStreamService(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	pushStreamDiscovery *servicediscovery.CreateServiceOutput,
-	provisionerConfig *awsEcsProvisionerConfig,
+	provisionerConfig *ecsProvisionerConfig,
 ) (*ecs.CreateServiceOutput, error) {
 	return ecsSvc.CreateService(&ecs.CreateServiceInput{
 		Cluster:        aws.String(provisionerConfig.cluster),
@@ -170,7 +210,7 @@ func createPushStreamService(
 func listPushStreamTasks(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
-	provisionerConfig *awsEcsProvisionerConfig,
+	provisionerConfig *ecsProvisionerConfig,
 ) (*ecs.ListTasksOutput, error) {
 	return ecsSvc.ListTasks(&ecs.ListTasksInput{
 		Cluster:     aws.String(provisionerConfig.cluster),
@@ -181,7 +221,7 @@ func listPushStreamTasks(
 func describePushStreamTasks(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
-	provisionerConfig *awsEcsProvisionerConfig,
+	provisionerConfig *ecsProvisionerConfig,
 ) (*ecs.DescribeTasksOutput, error) {
 	listOutput, err := listPushStreamTasks(instance, ecsSvc, provisionerConfig)
 	if err != nil {
@@ -198,7 +238,7 @@ func describePushStreamNetworkInterfaceTask(
 	instance *models.Instance,
 	ecsSvc *ecs.ECS,
 	ec2Svc *ec2.EC2,
-	provisionerConfig *awsEcsProvisionerConfig,
+	provisionerConfig *ecsProvisionerConfig,
 ) (*ec2.DescribeNetworkInterfacesOutput, error) {
 	describeOutput, _ := describePushStreamTasks(instance, ecsSvc, provisionerConfig)
 
@@ -228,3 +268,7 @@ func describePushStreamNetworkInterfaceTask(
 //	fmt.Println("========== push-stream - DescribeServices ==========")
 //	fmt.Println(output.GoString())
 //}
+
+func NewEcsPushStreamProvisioner() EcsPushStreamProvisioner {
+	return &ecsPushStreamProvisioner{}
+}

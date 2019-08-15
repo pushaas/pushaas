@@ -18,12 +18,12 @@ func runApp(
 	router *gin.Engine,
 	config *viper.Viper,
 	provisionWorker workers.ProvisionWorker,
-	provisioner provisioners.Provisioner,
+	provisioner provisioners.PushServiceProvisioner,
 ) error {
 	log := logger.Named("runApp")
 
-	provisionWorker.DispatchWorker()
-	//provisioner.Test()
+	//provisionWorker.DispatchWorker()
+	provisioner.Test()
 
 	err := router.Run(fmt.Sprintf(":%s", config.GetString("server.port")))
 	if err != nil {
@@ -58,7 +58,12 @@ func Run() {
 			ctors.NewProvisionService,
 
 			// provisioners
-			ctors.NewProvisioner,
+			ctors.NewPushServiceProvisioner,
+
+			// provisioner - ecs
+			ctors.NewEcsPushRedisProvisioner,
+			ctors.NewEcsPushStreamProvisioner,
+			ctors.NewEcsPushApiProvisioner,
 
 			// workers
 			ctors.NewProvisionWorker,

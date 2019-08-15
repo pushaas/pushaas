@@ -67,17 +67,17 @@ func setupFromDefaults(config *viper.Viper, env string) {
 	config.SetDefault("api.statics_path", "./client/build")
 
 	// provisioner
-	config.SetDefault("provisioner.provider", "aws-ecs")
+	config.SetDefault("provisioner.provider", "ecs")
 
-	// provisioner - aws
-	config.SetDefault("provisioner.aws.region", "us-east-1")
-	config.SetDefault("provisioner.aws.cluster", "pushaas-cluster")
-	config.SetDefault("provisioner.aws.logs-group", "/ecs/pushaas")
-	config.SetDefault("provisioner.aws.logs-stream-prefix", "ecs")
+	// provisioner - ecs
+	config.SetDefault("provisioner.ecs.region", "us-east-1")
+	config.SetDefault("provisioner.ecs.cluster", "pushaas-cluster")
+	config.SetDefault("provisioner.ecs.logs-group", "/ecs/pushaas")
+	config.SetDefault("provisioner.ecs.logs-stream-prefix", "ecs")
 
-	config.SetDefault("provisioner.aws.image-push-api", "rafaeleyng/push-api:latest") // TODO pass actual tag
-	config.SetDefault("provisioner.aws.image-push-agent", "rafaeleyng/push-agent:latest") // TODO pass actual tag
-	config.SetDefault("provisioner.aws.image-push-stream", "rafaeleyng/push-stream:latest") // TODO pass actual tag
+	config.SetDefault("provisioner.ecs.image-push-api", "rafaeleyng/push-api:latest") // TODO pass actual tag
+	config.SetDefault("provisioner.ecs.image-push-agent", "rafaeleyng/push-agent:latest") // TODO pass actual tag
+	config.SetDefault("provisioner.ecs.image-push-stream", "rafaeleyng/push-stream:latest") // TODO pass actual tag
 
 	// redis
 	config.SetDefault("redis.url", "redis://localhost:6379")

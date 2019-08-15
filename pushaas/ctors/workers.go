@@ -9,6 +9,6 @@ import (
 	"github.com/rafaeleyng/pushaas/pushaas/workers"
 )
 
-func NewProvisionWorker(config *viper.Viper, logger *zap.Logger, machineryServer *machinery.Server, provisioner provisioners.Provisioner) workers.ProvisionWorker {
+func NewProvisionWorker(config *viper.Viper, logger *zap.Logger, machineryServer *machinery.Server, provisioner provisioners.PushServiceProvisioner) workers.ProvisionWorker {
 	return workers.NewProvisionWorker(config, logger, machineryServer, provisioner)
 }

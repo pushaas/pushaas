@@ -1,4 +1,4 @@
-package aws_ecs_provisioner
+package ecs_provisioner
 
 import (
 	"github.com/aws/aws-sdk-go/aws"

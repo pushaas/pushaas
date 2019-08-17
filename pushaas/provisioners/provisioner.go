@@ -11,6 +11,7 @@ type (
 	PushServiceProvisioner interface {
 		Provision(*models.Instance) PushServiceProvisionResult
 		Deprovision(*models.Instance) PushServiceDeprovisionResult
+		CleanupServices()
 	}
 )
 

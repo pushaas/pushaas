@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
+	"go.uber.org/zap"
 
 	"github.com/rafaeleyng/pushaas/pushaas/models"
 )
@@ -18,12 +19,21 @@ const pushStream = "push-stream"
 
 type (
 	EcsPushStreamProvisioner interface {
-		Provision(*models.Instance, *ecs.ECS, *servicediscovery.ServiceDiscovery, *iam.GetRoleOutput, *ecsProvisionerConfig) (*provisionPushStreamResult, error)
-		DescribeService(*models.Instance, *ecs.ECS, *ecsProvisionerConfig) (*ecs.DescribeServicesOutput, error)
-		DescribePushStreamTaskNetworkInterface(instance *models.Instance, ecsSvc *ecs.ECS, ec2Svc *ec2.EC2, provisionerConfig *ecsProvisionerConfig) (*ec2.DescribeNetworkInterfacesOutput, error)
+		Provision(*models.Instance, *iam.GetRoleOutput, chan *provisionPushStreamResult)
 	}
 
-	ecsPushStreamProvisioner struct {}
+	ecsPushStreamProvisioner struct{
+		logger            *zap.Logger
+		provisionerConfig *EcsProvisionerConfig
+	}
+
+	provisionPushStreamResult struct {
+		eni              *ec2.DescribeNetworkInterfacesOutput
+		service          *ecs.CreateServiceOutput
+		serviceDiscovery *servicediscovery.CreateServiceOutput
+		taskDefinition   *ecs.RegisterTaskDefinitionOutput
+		err              error
+	}
 )
 
 func pushStreamWithInstance(instanceName string) string {
@@ -35,44 +45,68 @@ func pushStreamWithInstance(instanceName string) string {
 	provision
 	===========================================================================
 */
-func (p *ecsPushStreamProvisioner) Provision(
-	instance *models.Instance,
-	ecsSvc *ecs.ECS,
-	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
-	role *iam.GetRoleOutput,
-	provisionerConfig *ecsProvisionerConfig,
-) (*provisionPushStreamResult, error) {
+func (p *ecsPushStreamProvisioner) Provision(instance *models.Instance, role *iam.GetRoleOutput, ch chan *provisionPushStreamResult) {
 	var err error
 
-	taskDefinition, err := p.createPushStreamTaskDefinition(instance, ecsSvc, role, provisionerConfig)
+	// create task definition
+	taskDefinition, err := p.createPushStreamTaskDefinition(instance, role)
 	if err != nil {
-		return nil, errors.New("failed to create push-stream task definition")
+		ch <- &provisionPushStreamResult{err: errors.New("failed to create push-stream task definition")}
+		return
+	}
+	p.logger.Debug("[push-stream] did create task definition")
+
+	// create service discovery
+	serviceDiscovery, err := p.createPushStreamServiceDiscovery(instance)
+	if err != nil {
+		ch <- &provisionPushStreamResult{err: errors.New("failed to create push-stream service discovery service")}
+		return
+	}
+	p.logger.Debug("[push-stream] did create service discovery")
+
+	// create service
+	service, err := p.createPushStreamService(instance, serviceDiscovery)
+	if err != nil {
+		ch <- &provisionPushStreamResult{err: errors.New("failed to create push-stream service")}
+		return
+	}
+	p.logger.Debug("[push-stream] did create service")
+
+	// wait for service
+	waitCh := make(chan bool)
+	go waitServiceUp(instance, waitCh, p.describeService)
+	if serviceUp := <-waitCh; !serviceUp {
+		ch <- &provisionPushStreamResult{err: errors.New("push-stream service did not become available")}
+		return
+	}
+	p.logger.Debug("[push-stream] service is up")
+
+	// wait for network interface
+	eniCh := make(chan bool)
+	go waitTaskNetworkInterface(instance, eniCh, p.describePushStreamTaskNetworkInterface)
+	if isEniUp := <-eniCh; !isEniUp {
+		ch <- &provisionPushStreamResult{err: errors.New("push-stream ENI failed to become available")}
+		return
 	}
 
-	serviceDiscovery, err := p.createPushStreamServiceDiscovery(instance, serviceDiscoverySvc, provisionerConfig)
+	// get network interface
+	eni, err := p.describePushStreamTaskNetworkInterface(instance)
 	if err != nil {
-		return nil, errors.New("failed to create push-stream service discovery service")
+		ch <- &provisionPushStreamResult{err: errors.New("push-stream ENI could not be retrieved")}
+		return
 	}
+	p.logger.Debug("[push-stream] network interface is up")
 
-	service, err := p.createPushStreamService(instance, ecsSvc, serviceDiscovery, provisionerConfig)
-	if err != nil {
-		return nil, errors.New("failed to create push-stream service")
-	}
-
-	return &provisionPushStreamResult{
+	ch <- &provisionPushStreamResult{
+		eni:              eni,
+		service:          service,
 		serviceDiscovery: serviceDiscovery,
 		taskDefinition:   taskDefinition,
-		service:          service,
-	}, nil
+	}
 }
 
-func (p *ecsPushStreamProvisioner) createPushStreamTaskDefinition(
-	instance *models.Instance,
-	ecsSvc *ecs.ECS,
-	role *iam.GetRoleOutput,
-	provisionerConfig *ecsProvisionerConfig,
-) (*ecs.RegisterTaskDefinitionOutput, error) {
-	return ecsSvc.RegisterTaskDefinition(&ecs.RegisterTaskDefinitionInput{
+func (p *ecsPushStreamProvisioner) createPushStreamTaskDefinition(instance *models.Instance, role *iam.GetRoleOutput) (*ecs.RegisterTaskDefinitionOutput, error) {
+	return p.provisionerConfig.ecs.RegisterTaskDefinition(&ecs.RegisterTaskDefinitionInput{
 		Family:                  aws.String(pushStreamWithInstance(instance.Name)),
 		ExecutionRoleArn:        role.Role.Arn,
 		NetworkMode:             aws.String(ecs.NetworkModeAwsvpc),
@@ -83,14 +117,14 @@ func (p *ecsPushStreamProvisioner) createPushStreamTaskDefinition(
 			{
 				Name:              aws.String(pushStream),
 				Cpu:               aws.Int64(256),
-				Image:             aws.String(provisionerConfig.imagePushStream),
+				Image:             p.provisionerConfig.imagePushStream,
 				MemoryReservation: aws.Int64(512),
 				LogConfiguration: &ecs.LogConfiguration{
 					LogDriver: aws.String(ecs.LogDriverAwslogs),
 					Options: map[string]*string{
-						"awslogs-region":        aws.String(provisionerConfig.region),
-						"awslogs-group":         aws.String(provisionerConfig.logsGroup),
-						"awslogs-stream-prefix": aws.String(provisionerConfig.logsStreamPrefix),
+						"awslogs-region":        p.provisionerConfig.region,
+						"awslogs-group":         p.provisionerConfig.logsGroup,
+						"awslogs-stream-prefix": p.provisionerConfig.logsStreamPrefix,
 					},
 				},
 				PortMappings: []*ecs.PortMapping{
@@ -103,7 +137,7 @@ func (p *ecsPushStreamProvisioner) createPushStreamTaskDefinition(
 			{
 				Name:  aws.String(pushAgent),
 				Cpu:   aws.Int64(256),
-				Image: aws.String(provisionerConfig.imagePushAgent),
+				Image: p.provisionerConfig.imagePushAgent,
 				DependsOn: []*ecs.ContainerDependency{
 					{
 						Condition:     aws.String(ecs.ContainerConditionStart),
@@ -114,9 +148,9 @@ func (p *ecsPushStreamProvisioner) createPushStreamTaskDefinition(
 				LogConfiguration: &ecs.LogConfiguration{
 					LogDriver: aws.String(ecs.LogDriverAwslogs),
 					Options: map[string]*string{
-						"awslogs-region":        aws.String(provisionerConfig.region),
-						"awslogs-group":         aws.String(provisionerConfig.logsGroup),
-						"awslogs-stream-prefix": aws.String(provisionerConfig.logsStreamPrefix),
+						"awslogs-region":        p.provisionerConfig.region,
+						"awslogs-group":         p.provisionerConfig.logsGroup,
+						"awslogs-stream-prefix": p.provisionerConfig.logsStreamPrefix,
 					},
 				},
 				Environment: []*ecs.KeyValuePair{
@@ -134,14 +168,10 @@ func (p *ecsPushStreamProvisioner) createPushStreamTaskDefinition(
 	})
 }
 
-func (p *ecsPushStreamProvisioner) createPushStreamServiceDiscovery(
-	instance *models.Instance,
-	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
-	provisionerConfig *ecsProvisionerConfig,
-) (*servicediscovery.CreateServiceOutput, error) {
-	return serviceDiscoverySvc.CreateService(&servicediscovery.CreateServiceInput{
+func (p *ecsPushStreamProvisioner) createPushStreamServiceDiscovery(instance *models.Instance) (*servicediscovery.CreateServiceOutput, error) {
+	return p.provisionerConfig.serviceDiscovery.CreateService(&servicediscovery.CreateServiceInput{
 		Name:        aws.String(pushStreamWithInstance(instance.Name)),
-		NamespaceId: aws.String(provisionerConfig.dnsNamespace),
+		NamespaceId: p.provisionerConfig.dnsNamespace,
 		DnsConfig: &servicediscovery.DnsConfig{
 			DnsRecords: []*servicediscovery.DnsRecord{
 				{
@@ -156,14 +186,9 @@ func (p *ecsPushStreamProvisioner) createPushStreamServiceDiscovery(
 	})
 }
 
-func (p *ecsPushStreamProvisioner) createPushStreamService(
-	instance *models.Instance,
-	ecsSvc *ecs.ECS,
-	pushStreamDiscovery *servicediscovery.CreateServiceOutput,
-	provisionerConfig *ecsProvisionerConfig,
-) (*ecs.CreateServiceOutput, error) {
-	return ecsSvc.CreateService(&ecs.CreateServiceInput{
-		Cluster:        aws.String(provisionerConfig.cluster),
+func (p *ecsPushStreamProvisioner) createPushStreamService(instance *models.Instance, pushStreamDiscovery *servicediscovery.CreateServiceOutput) (*ecs.CreateServiceOutput, error) {
+	return p.provisionerConfig.ecs.CreateService(&ecs.CreateServiceInput{
+		Cluster:        p.provisionerConfig.cluster,
 		DesiredCount:   aws.Int64(1),
 		ServiceName:    aws.String(pushStreamWithInstance(instance.Name)),
 		TaskDefinition: aws.String(pushStreamWithInstance(instance.Name)),
@@ -171,8 +196,8 @@ func (p *ecsPushStreamProvisioner) createPushStreamService(
 		NetworkConfiguration: &ecs.NetworkConfiguration{
 			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
 				AssignPublicIp: aws.String(ecs.AssignPublicIpEnabled),
-				SecurityGroups: []*string{aws.String(provisionerConfig.securityGroup)},
-				Subnets:        []*string{aws.String(provisionerConfig.subnet)},
+				SecurityGroups: []*string{p.provisionerConfig.securityGroup},
+				Subnets:        []*string{p.provisionerConfig.subnet},
 			},
 		},
 		ServiceRegistries: []*ecs.ServiceRegistry{
@@ -209,23 +234,15 @@ func (p *ecsPushStreamProvisioner) createPushStreamService(
 	other
 	===========================================================================
 */
-func (p *ecsPushStreamProvisioner) listPushStreamTasks(
-	instance *models.Instance,
-	ecsSvc *ecs.ECS,
-	provisionerConfig *ecsProvisionerConfig,
-) (*ecs.ListTasksOutput, error) {
-	return ecsSvc.ListTasks(&ecs.ListTasksInput{
-		Cluster:     aws.String(provisionerConfig.cluster),
+func (p *ecsPushStreamProvisioner) listPushStreamTasks(instance *models.Instance) (*ecs.ListTasksOutput, error) {
+	return p.provisionerConfig.ecs.ListTasks(&ecs.ListTasksInput{
+		Cluster:     p.provisionerConfig.cluster,
 		ServiceName: aws.String(pushStreamWithInstance(instance.Name)),
 	})
 }
 
-func (p *ecsPushStreamProvisioner) describePushStreamTasks(
-	instance *models.Instance,
-	ecsSvc *ecs.ECS,
-	provisionerConfig *ecsProvisionerConfig,
-) (*ecs.DescribeTasksOutput, error) {
-	listOutput, err := p.listPushStreamTasks(instance, ecsSvc, provisionerConfig)
+func (p *ecsPushStreamProvisioner) describePushStreamTasks(instance *models.Instance) (*ecs.DescribeTasksOutput, error) {
+	listOutput, err := p.listPushStreamTasks(instance)
 	if err != nil {
 		return nil, err
 	}
@@ -234,25 +251,20 @@ func (p *ecsPushStreamProvisioner) describePushStreamTasks(
 		return nil, errors.New(fmt.Sprintf("[describePushStreamTasks] no tasks in service %s", pushStreamWithInstance(instance.Name)))
 	}
 
-	return ecsSvc.DescribeTasks(&ecs.DescribeTasksInput{
+	return p.provisionerConfig.ecs.DescribeTasks(&ecs.DescribeTasksInput{
 		Tasks:   []*string{listOutput.TaskArns[0]},
-		Cluster: aws.String(provisionerConfig.cluster),
+		Cluster: p.provisionerConfig.cluster,
 	})
 }
 
-func (p *ecsPushStreamProvisioner) DescribePushStreamTaskNetworkInterface(
-	instance *models.Instance,
-	ecsSvc *ecs.ECS,
-	ec2Svc *ec2.EC2,
-	provisionerConfig *ecsProvisionerConfig,
-) (*ec2.DescribeNetworkInterfacesOutput, error) {
-	describeOutput, err := p.describePushStreamTasks(instance, ecsSvc, provisionerConfig)
+func (p *ecsPushStreamProvisioner) describePushStreamTaskNetworkInterface(instance *models.Instance) (*ec2.DescribeNetworkInterfacesOutput, error) {
+	describeOutput, err := p.describePushStreamTasks(instance)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(describeOutput.Tasks) == 0 || len(describeOutput.Tasks[0].Attachments) == 0 {
-		return nil, errors.New(fmt.Sprintf("[DescribePushStreamTaskNetworkInterface] no tasks or attachments found for service %s", pushStreamWithInstance(instance.Name)))
+		return nil, errors.New(fmt.Sprintf("[describePushStreamTaskNetworkInterface] no tasks or attachments found for service %s", pushStreamWithInstance(instance.Name)))
 	}
 
 	var eniId *string
@@ -262,22 +274,21 @@ func (p *ecsPushStreamProvisioner) DescribePushStreamTaskNetworkInterface(
 		}
 	}
 
-	return ec2Svc.DescribeNetworkInterfaces(&ec2.DescribeNetworkInterfacesInput{
+	return p.provisionerConfig.ec2.DescribeNetworkInterfaces(&ec2.DescribeNetworkInterfacesInput{
 		NetworkInterfaceIds: []*string{eniId},
 	})
 }
 
-func (p *ecsPushStreamProvisioner) DescribeService(
-	instance *models.Instance,
-	ecsSvc *ecs.ECS,
-	provisionerConfig *ecsProvisionerConfig,
-) (*ecs.DescribeServicesOutput, error) {
-	return ecsSvc.DescribeServices(&ecs.DescribeServicesInput{
-		Cluster:  aws.String(provisionerConfig.cluster),
+func (p *ecsPushStreamProvisioner) describeService(instance *models.Instance) (*ecs.DescribeServicesOutput, error) {
+	return p.provisionerConfig.ecs.DescribeServices(&ecs.DescribeServicesInput{
+		Cluster:  p.provisionerConfig.cluster,
 		Services: []*string{aws.String(pushStreamWithInstance(instance.Name))},
 	})
 }
 
-func NewEcsPushStreamProvisioner() EcsPushStreamProvisioner {
-	return &ecsPushStreamProvisioner{}
+func NewEcsPushStreamProvisioner(logger *zap.Logger, provisionerConfig *EcsProvisionerConfig) EcsPushStreamProvisioner {
+	return &ecsPushStreamProvisioner{
+		logger:            logger,
+		provisionerConfig: provisionerConfig,
+	}
 }

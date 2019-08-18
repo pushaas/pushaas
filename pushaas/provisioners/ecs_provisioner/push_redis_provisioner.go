@@ -17,7 +17,7 @@ const pushRedis = "push-redis"
 type (
 	EcsPushRedisProvisioner interface {
 		Provision(*models.Instance, chan *provisionPushRedisResult)
-		//Deprovision(*models.Instance, func(*models.Instance, chan bool, func(*models.Instance) (*ecs.DescribeServicesOutput, error))) (*deprovisionPushRedisResult, error)
+		Deprovision(*models.Instance, chan *deprovisionPushRedisResult)
 	}
 
 	ecsPushRedisProvisioner struct {
@@ -31,10 +31,11 @@ type (
 		err              error
 	}
 
-	//deprovisionPushRedisResult struct {
-	//	service          *ecs.DeleteServiceOutput
-	//	serviceDiscovery *servicediscovery.DeleteServiceOutput
-	//}
+	deprovisionPushRedisResult struct {
+		service          *ecs.DeleteServiceOutput
+		serviceDiscovery *servicediscovery.DeleteServiceOutput
+		err              error
+	}
 )
 
 func pushRedisWithInstance(instanceName string) string {
@@ -52,7 +53,8 @@ func (p *ecsPushRedisProvisioner) Provision(instance *models.Instance, ch chan *
 	// create service discovery
 	serviceDiscovery, err := p.createRedisServiceDiscovery(instance)
 	if err != nil {
-		ch <- &provisionPushRedisResult{err: errors.New("failed to create push-redis service discovery service")}
+		//p.logger.Error()
+		ch <- &provisionPushRedisResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-redis] did create service discovery")
@@ -60,14 +62,14 @@ func (p *ecsPushRedisProvisioner) Provision(instance *models.Instance, ch chan *
 	// create service
 	service, err := p.createRedisService(instance, serviceDiscovery)
 	if err != nil {
-		ch <- &provisionPushRedisResult{err: errors.New("failed to create push-redis service")}
+		ch <- &provisionPushRedisResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-redis] did create service")
 
-	// wait for service
+	// wait for service to go up
 	waitCh := make(chan bool)
-	go waitServiceUp(instance, waitCh, p.describeService)
+	go waitServiceUp(p.logger, instance, waitCh, p.describeService)
 	if serviceUp := <-waitCh; !serviceUp {
 		ch <- &provisionPushRedisResult{err: errors.New("push-redis service did not become available")}
 		return
@@ -125,69 +127,102 @@ func (p *ecsPushRedisProvisioner) createRedisService(instance *models.Instance, 
 	deprovision
 	===========================================================================
 */
-//func (p *ecsPushRedisProvisioner) Deprovision(
-//	instance *models.Instance,
-//	ecsSvc *ecs.ECS,
-//	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
-//	waitServiceDown func(*models.Instance, *ecs.ECS, chan bool, func(*models.Instance, *ecs.ECS) (*ecs.DescribeServicesOutput, error),
-//	)) (*deprovisionPushRedisResult, error) {
-//	//var err error
-//	//
-//	//service, err := p.deleteRedisService(instance, ecsSvc, provisionerConfig)
-//	//if err != nil {
-//	//	return nil, err
-//	//}
-//	//
-//	//chRedis
-//	//
-//	//serviceDiscovery, err := p.deleteRedisServiceDiscovery(instance, serviceDiscoverySvc, provisionerConfig)
-//	//fmt.Println("############### rafael START")
-//	//fmt.Println(serviceDiscovery)
-//	//fmt.Println(err)
-//	//fmt.Println("############### rafael END")
-//	//if err != nil {
-//	//	return nil, err
-//	//}
-//
-//	return &deprovisionPushRedisResult{
-//		//serviceDiscovery: serviceDiscovery,
-//		//service:          service,
-//	}, nil
-//}
+func (p *ecsPushRedisProvisioner) Deprovision(instance *models.Instance, ch chan *deprovisionPushRedisResult) {
+	var err error
 
-/*
-func (p *ecsPushRedisProvisioner) deleteRedisService(
-	instance *models.Instance,
-	ecsSvc *ecs.ECS,
-	provisionerConfig *ecsProvisionerConfig,
-) (*ecs.DeleteServiceOutput, error) {
-	return ecsSvc.DeleteService(&ecs.DeleteServiceInput{
-		Cluster: aws.String(p.provisionerConfig.cluster),
-		Force:   aws.Bool(true),
-		Service: aws.String(pushRedisWithInstance(instance.Name)),
+	// get service
+	describedService, err := p.describeService(instance)
+	if err != nil {
+		ch <- &deprovisionPushRedisResult{err: err}
+		return
+	}
+	if len(describedService.Services) == 0 {
+		ch <- &deprovisionPushRedisResult{err: errors.New(fmt.Sprintf("[push-redis] could  not find service %s", pushRedisWithInstance(instance.Name)))}
+		return
+	}
+	p.logger.Debug("[push-redis] did locate service")
+
+	// scale to 0 tasks
+	_, err = p.stopService(instance, describedService)
+	if err != nil {
+		ch <- &deprovisionPushRedisResult{err: err}
+		return
+	}
+	p.logger.Debug("[push-redis] did update service to desiredCount 0")
+
+	// wait tasks to stop
+	waitTasksCh := make(chan bool)
+	go waitServiceStopAllTasks(p.logger, instance, waitTasksCh, p.describeService)
+	if serviceDown := <-waitTasksCh; !serviceDown {
+		ch <- &deprovisionPushRedisResult{err: errors.New("[push-redis] service did not remove all tasks")}
+		return
+	}
+	p.logger.Debug("[push-redis] tasks are down")
+
+	// delete service
+	service, err := p.deleteService(instance, describedService)
+	if err != nil {
+		ch <- &deprovisionPushRedisResult{err: err}
+		return
+	}
+	p.logger.Debug("[push-redis] did delete service")
+
+	// wait service to stop
+	waitServiceCh := make(chan bool)
+	go waitServiceDown(p.logger, instance, waitServiceCh, p.describeService)
+	if serviceDown := <-waitServiceCh; !serviceDown {
+		ch <- &deprovisionPushRedisResult{err: errors.New("[push-redis] service did not go down")}
+		return
+	}
+	p.logger.Debug("[push-redis] service is down")
+
+	// delete service discovery
+	serviceDiscovery, err := p.deleteServiceDiscovery(instance)
+	if err != nil {
+		ch <- &deprovisionPushRedisResult{err: err}
+		return
+	}
+	p.logger.Debug("[push-redis] did delete service discovery")
+
+	ch <- &deprovisionPushRedisResult{
+		service:          service,
+		serviceDiscovery: serviceDiscovery,
+	}
+}
+
+// TODO refactor
+func (p *ecsPushRedisProvisioner) stopService(instance *models.Instance, describeService *ecs.DescribeServicesOutput) (*ecs.UpdateServiceOutput, error) {
+	return p.provisionerConfig.ecs.UpdateService(&ecs.UpdateServiceInput{
+		Cluster:      p.provisionerConfig.cluster,
+		DesiredCount: aws.Int64(0),
+		Service:      describeService.Services[0].ServiceName,
 	})
 }
 
-func (p *ecsPushRedisProvisioner) deleteRedisServiceDiscovery(
-	instance *models.Instance,
-	serviceDiscoverySvc *servicediscovery.ServiceDiscovery,
-	provisionerConfig *ecsProvisionerConfig,
-) (*servicediscovery.DeleteServiceOutput, error) {
-	listServiceResult, err := p.listServiceDiscoveryServices(serviceDiscoverySvc)
+func (p *ecsPushRedisProvisioner) deleteService(instance *models.Instance, describeService *ecs.DescribeServicesOutput) (*ecs.DeleteServiceOutput, error) {
+	return p.provisionerConfig.ecs.DeleteService(&ecs.DeleteServiceInput{
+		Cluster: p.provisionerConfig.cluster,
+		Force: aws.Bool(true),
+		Service: describeService.Services[0].ServiceName,
+	})
+}
+
+func (p *ecsPushRedisProvisioner) deleteServiceDiscovery(instance *models.Instance) (*servicediscovery.DeleteServiceOutput, error) {
+	listServiceResult, err := listServiceDiscoveryServices(p.provisionerConfig.serviceDiscovery)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	for _, service := range listServiceResult.Services {
 		if *service.Name == pushRedisWithInstance(instance.Name) {
-			return serviceDiscoverySvc.DeleteService(&servicediscovery.DeleteServiceInput{
+			return p.provisionerConfig.serviceDiscovery.DeleteService(&servicediscovery.DeleteServiceInput{
 				Id: service.Id,
 			})
 		}
 	}
+
 	return nil, errors.New(fmt.Sprintf("could not find push-redis service discovery service for instance %s", instance.Name))
 }
-*/
 
 /*
 	===========================================================================

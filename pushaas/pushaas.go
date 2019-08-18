@@ -25,12 +25,10 @@ func runApp(
 	//provisionWorker.DispatchWorker()
 
 	instance := &models.Instance{
-		Name:   "instance-57",
+		Name:   "instance-70",
 	}
-	fmt.Println("#### testando instance", instance)
-	provisioner.Provision(instance)
-	//provisioner.Deprovision(instance)
-	//provisioner.CleanupServices()
+	//provisioner.Provision(instance)
+	provisioner.Deprovision(instance)
 
 	err := router.Run(fmt.Sprintf(":%s", config.GetString("server.port")))
 	if err != nil {

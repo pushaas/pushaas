@@ -1,6 +1,7 @@
 package ecs_provisioner
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,12 +11,16 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
-	"github.com/aws/aws-sdk-go/service/servicediscovery/servicediscoveryiface"
 	"go.uber.org/zap"
 
 	"github.com/rafaeleyng/pushaas/pushaas/models"
 )
 
+/*
+	===========================================================================
+	iam
+	===========================================================================
+*/
 const roleName = "ecsTaskExecutionRole"
 
 func getIamRole(iamSvc iamiface.IAMAPI) (*iam.GetRoleOutput, error) {
@@ -26,10 +31,103 @@ func getIamRole(iamSvc iamiface.IAMAPI) (*iam.GetRoleOutput, error) {
 	return iamSvc.GetRole(input)
 }
 
-func listServiceDiscoveryServices(serviceDiscovery servicediscoveryiface.ServiceDiscoveryAPI) (*servicediscovery.ListServicesOutput, error) {
-	return serviceDiscovery.ListServices(&servicediscovery.ListServicesInput{})
+/*
+	===========================================================================
+	ecs
+	===========================================================================
+*/
+func describeService(instanceName string, provisionerConfig *EcsProvisionerConfig) (*ecs.DescribeServicesOutput, error) {
+	return provisionerConfig.ecs.DescribeServices(&ecs.DescribeServicesInput{
+		Cluster:  provisionerConfig.cluster,
+		Services: []*string{aws.String(instanceName)},
+	})
 }
 
+func deleteService(describeServiceOutput *ecs.DescribeServicesOutput, provisionerConfig *EcsProvisionerConfig) (*ecs.DeleteServiceOutput, error) {
+	return provisionerConfig.ecs.DeleteService(&ecs.DeleteServiceInput{
+		Cluster: provisionerConfig.cluster,
+		Force: aws.Bool(true),
+		Service: describeServiceOutput.Services[0].ServiceName,
+	})
+}
+
+func stopService(describeService *ecs.DescribeServicesOutput, provisionerConfig *EcsProvisionerConfig) (*ecs.UpdateServiceOutput, error) {
+	return provisionerConfig.ecs.UpdateService(&ecs.UpdateServiceInput{
+		Cluster:      provisionerConfig.cluster,
+		DesiredCount: aws.Int64(0),
+		Service:      describeService.Services[0].ServiceName,
+	})
+}
+
+func deleteTaskDefinition(describeService *ecs.DescribeServicesOutput, provisionerConfig *EcsProvisionerConfig) (*ecs.DeregisterTaskDefinitionOutput, error) {
+	return provisionerConfig.ecs.DeregisterTaskDefinition(&ecs.DeregisterTaskDefinitionInput{
+		TaskDefinition: describeService.Services[0].TaskDefinition,
+	})
+}
+
+/*
+	===========================================================================
+	serviceDiscovery
+	===========================================================================
+*/
+func describeNamespace(provisionerConfig *EcsProvisionerConfig) (*servicediscovery.GetNamespaceOutput, error) {
+	return provisionerConfig.serviceDiscovery.GetNamespace(&servicediscovery.GetNamespaceInput{
+		Id: provisionerConfig.dnsNamespace,
+	})
+}
+
+func listServiceDiscoveryInstances(instanceName string, provisionerConfig *EcsProvisionerConfig) (*servicediscovery.DiscoverInstancesOutput, error) {
+	namespaceOutput, err := describeNamespace(provisionerConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return provisionerConfig.serviceDiscovery.DiscoverInstances(&servicediscovery.DiscoverInstancesInput{
+		NamespaceName: namespaceOutput.Namespace.Name,
+		ServiceName: aws.String(instanceName),
+	})
+}
+
+func deleteServiceDiscoveryInstances(instanceName string, provisionerConfig *EcsProvisionerConfig) (*servicediscovery.DeregisterInstanceOutput, error) {
+	instancesOutput, err := listServiceDiscoveryInstances(instanceName, provisionerConfig)
+	if err != nil {
+		return nil, nil
+	}
+
+	// we are assuming here there is always a single instance
+	serviceDiscoveryInstance := instancesOutput.Instances[0]
+	return provisionerConfig.serviceDiscovery.DeregisterInstance(&servicediscovery.DeregisterInstanceInput{
+		InstanceId: serviceDiscoveryInstance.InstanceId,
+	})
+}
+
+func listServiceDiscoveryServices(provisionerConfig *EcsProvisionerConfig) (*servicediscovery.ListServicesOutput, error) {
+	return provisionerConfig.serviceDiscovery.ListServices(&servicediscovery.ListServicesInput{})
+}
+
+func deleteServiceDiscovery(instanceName string, provisionerConfig *EcsProvisionerConfig) (*servicediscovery.DeleteServiceOutput, error) {
+	listServiceResult, err := listServiceDiscoveryServices(provisionerConfig)
+	if err != nil {
+		return nil, nil
+	}
+
+	for _, service := range listServiceResult.Services {
+		if *service.Name == instanceName {
+			return provisionerConfig.serviceDiscovery.DeleteService(&servicediscovery.DeleteServiceInput{
+				Id: service.Id,
+			})
+		}
+	}
+
+	return nil, errors.New(fmt.Sprintf("could not find service discovery service for instance %s", instanceName))
+}
+
+
+/*
+	===========================================================================
+	other
+	===========================================================================
+*/
 const attempts = 30
 const interval = 5 * time.Second
 

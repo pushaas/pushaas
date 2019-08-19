@@ -237,7 +237,7 @@ func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch cha
 	p.logger.Debug("[push-stream] did locate service")
 
 	// scale to 0 tasks
-	_, err = p.stopService(instance, describedService)
+	_, err = stopService(describedService, p.provisionerConfig)
 	if err != nil {
 		ch <- &deprovisionPushStreamResult{err: err}
 		return
@@ -251,10 +251,10 @@ func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch cha
 		ch <- &deprovisionPushStreamResult{err: errors.New("[push-stream] service did not remove all tasks")}
 		return
 	}
-	p.logger.Debug("[push-stream] service is down")
+	p.logger.Debug("[push-stream] tasks are down")
 
 	// delete service
-	service, err := p.deleteService(instance, describedService)
+	service, err := deleteService(describedService, p.provisionerConfig)
 	if err != nil {
 		ch <- &deprovisionPushStreamResult{err: err}
 		return
@@ -270,8 +270,15 @@ func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch cha
 	}
 	p.logger.Debug("[push-stream] service is down")
 
+	// delete service discovery instances
+	_, err = deleteServiceDiscoveryInstances(pushStreamWithInstance(instance.Name), p.provisionerConfig)
+	if err != nil {
+		ch <- &deprovisionPushStreamResult{err: err}
+		return
+	}
+
 	// delete service discovery
-	serviceDiscovery, err := p.deleteServiceDiscovery(instance)
+	serviceDiscovery, err := deleteServiceDiscovery(pushStreamWithInstance(instance.Name), p.provisionerConfig)
 	if err != nil {
 		ch <- &deprovisionPushStreamResult{err: err}
 		return
@@ -279,7 +286,7 @@ func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch cha
 	p.logger.Debug("[push-stream] did delete service discovery")
 
 	// delete task definition
-	taskDefinition, err := p.deleteTaskDefinition(instance, describedService)
+	taskDefinition, err := deleteTaskDefinition(describedService, p.provisionerConfig)
 	if err != nil {
 		ch <- &deprovisionPushStreamResult{err: err}
 		return
@@ -291,46 +298,6 @@ func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch cha
 		serviceDiscovery: serviceDiscovery,
 		taskDefinition:   taskDefinition,
 	}
-}
-
-// TODO refactor
-func (p *ecsPushStreamProvisioner) stopService(instance *models.Instance, describeService *ecs.DescribeServicesOutput) (*ecs.UpdateServiceOutput, error) {
-	return p.provisionerConfig.ecs.UpdateService(&ecs.UpdateServiceInput{
-		Cluster:      p.provisionerConfig.cluster,
-		DesiredCount: aws.Int64(0),
-		Service:      describeService.Services[0].ServiceName,
-	})
-}
-
-func (p *ecsPushStreamProvisioner) deleteService(instance *models.Instance, describeService *ecs.DescribeServicesOutput) (*ecs.DeleteServiceOutput, error) {
-	return p.provisionerConfig.ecs.DeleteService(&ecs.DeleteServiceInput{
-		Cluster: p.provisionerConfig.cluster,
-		Force: aws.Bool(true),
-		Service: describeService.Services[0].ServiceName,
-	})
-}
-
-func (p *ecsPushStreamProvisioner) deleteServiceDiscovery(instance *models.Instance) (*servicediscovery.DeleteServiceOutput, error) {
-	listServiceResult, err := listServiceDiscoveryServices(p.provisionerConfig.serviceDiscovery)
-	if err != nil {
-		return nil, nil
-	}
-
-	for _, service := range listServiceResult.Services {
-		if *service.Name == pushStreamWithInstance(instance.Name) {
-			return p.provisionerConfig.serviceDiscovery.DeleteService(&servicediscovery.DeleteServiceInput{
-				Id: service.Id,
-			})
-		}
-	}
-
-	return nil, errors.New(fmt.Sprintf("could not find push-stream service discovery service for instance %s", instance.Name))
-}
-
-func (p *ecsPushStreamProvisioner) deleteTaskDefinition(instance *models.Instance, describeService *ecs.DescribeServicesOutput) (*ecs.DeregisterTaskDefinitionOutput, error) {
-	return p.provisionerConfig.ecs.DeregisterTaskDefinition(&ecs.DeregisterTaskDefinitionInput{
-		TaskDefinition: describeService.Services[0].TaskDefinition,
-	})
 }
 
 /*
@@ -384,10 +351,7 @@ func (p *ecsPushStreamProvisioner) describeTaskNetworkInterface(instance *models
 }
 
 func (p *ecsPushStreamProvisioner) describeService(instance *models.Instance) (*ecs.DescribeServicesOutput, error) {
-	return p.provisionerConfig.ecs.DescribeServices(&ecs.DescribeServicesInput{
-		Cluster:  p.provisionerConfig.cluster,
-		Services: []*string{aws.String(pushStreamWithInstance(instance.Name))},
-	})
+	return describeService(pushStreamWithInstance(instance.Name), p.provisionerConfig)
 }
 
 func NewEcsPushStreamProvisioner(logger *zap.Logger, provisionerConfig *EcsProvisionerConfig) EcsPushStreamProvisioner {

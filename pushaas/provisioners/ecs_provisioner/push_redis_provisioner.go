@@ -51,7 +51,7 @@ func (p *ecsPushRedisProvisioner) Provision(instance *models.Instance, ch chan *
 	var err error
 
 	// create service discovery
-	serviceDiscovery, err := p.createRedisServiceDiscovery(instance)
+	serviceDiscovery, err := p.createServiceDiscovery(instance)
 	if err != nil {
 		//p.logger.Error()
 		ch <- &provisionPushRedisResult{err: err}
@@ -60,7 +60,7 @@ func (p *ecsPushRedisProvisioner) Provision(instance *models.Instance, ch chan *
 	p.logger.Debug("[push-redis] did create service discovery")
 
 	// create service
-	service, err := p.createRedisService(instance, serviceDiscovery)
+	service, err := p.createService(instance, serviceDiscovery)
 	if err != nil {
 		ch <- &provisionPushRedisResult{err: err}
 		return
@@ -82,7 +82,7 @@ func (p *ecsPushRedisProvisioner) Provision(instance *models.Instance, ch chan *
 	}
 }
 
-func (p *ecsPushRedisProvisioner) createRedisServiceDiscovery(instance *models.Instance) (*servicediscovery.CreateServiceOutput, error) {
+func (p *ecsPushRedisProvisioner) createServiceDiscovery(instance *models.Instance) (*servicediscovery.CreateServiceOutput, error) {
 	return p.provisionerConfig.serviceDiscovery.CreateService(&servicediscovery.CreateServiceInput{
 		Name:        aws.String(pushRedisWithInstance(instance.Name)),
 		NamespaceId: p.provisionerConfig.dnsNamespace,
@@ -100,7 +100,7 @@ func (p *ecsPushRedisProvisioner) createRedisServiceDiscovery(instance *models.I
 	})
 }
 
-func (p *ecsPushRedisProvisioner) createRedisService(instance *models.Instance,  serviceDiscovery *servicediscovery.CreateServiceOutput) (*ecs.CreateServiceOutput, error) {
+func (p *ecsPushRedisProvisioner) createService(instance *models.Instance,  serviceDiscovery *servicediscovery.CreateServiceOutput) (*ecs.CreateServiceOutput, error) {
 	return p.provisionerConfig.ecs.CreateService(&ecs.CreateServiceInput{
 		Cluster:        p.provisionerConfig.cluster,
 		DesiredCount:   aws.Int64(1),
@@ -137,13 +137,13 @@ func (p *ecsPushRedisProvisioner) Deprovision(instance *models.Instance, ch chan
 		return
 	}
 	if len(describedService.Services) == 0 {
-		ch <- &deprovisionPushRedisResult{err: errors.New(fmt.Sprintf("[push-redis] could  not find service %s", pushRedisWithInstance(instance.Name)))}
+		ch <- &deprovisionPushRedisResult{err: errors.New(fmt.Sprintf("[push-redis] could not find service %s", pushRedisWithInstance(instance.Name)))}
 		return
 	}
 	p.logger.Debug("[push-redis] did locate service")
 
 	// scale to 0 tasks
-	_, err = p.stopService(instance, describedService)
+	_, err = stopService(describedService, p.provisionerConfig)
 	if err != nil {
 		ch <- &deprovisionPushRedisResult{err: err}
 		return
@@ -160,7 +160,7 @@ func (p *ecsPushRedisProvisioner) Deprovision(instance *models.Instance, ch chan
 	p.logger.Debug("[push-redis] tasks are down")
 
 	// delete service
-	service, err := p.deleteService(instance, describedService)
+	service, err := deleteService(describedService, p.provisionerConfig)
 	if err != nil {
 		ch <- &deprovisionPushRedisResult{err: err}
 		return
@@ -176,8 +176,15 @@ func (p *ecsPushRedisProvisioner) Deprovision(instance *models.Instance, ch chan
 	}
 	p.logger.Debug("[push-redis] service is down")
 
+	// delete service discovery instances
+	_, err = deleteServiceDiscoveryInstances(pushRedisWithInstance(instance.Name), p.provisionerConfig)
+	if err != nil {
+		ch <- &deprovisionPushRedisResult{err: err}
+		return
+	}
+
 	// delete service discovery
-	serviceDiscovery, err := p.deleteServiceDiscovery(instance)
+	serviceDiscovery, err := deleteServiceDiscovery(pushRedisWithInstance(instance.Name), p.provisionerConfig)
 	if err != nil {
 		ch <- &deprovisionPushRedisResult{err: err}
 		return
@@ -190,54 +197,13 @@ func (p *ecsPushRedisProvisioner) Deprovision(instance *models.Instance, ch chan
 	}
 }
 
-// TODO refactor
-func (p *ecsPushRedisProvisioner) stopService(instance *models.Instance, describeService *ecs.DescribeServicesOutput) (*ecs.UpdateServiceOutput, error) {
-	return p.provisionerConfig.ecs.UpdateService(&ecs.UpdateServiceInput{
-		Cluster:      p.provisionerConfig.cluster,
-		DesiredCount: aws.Int64(0),
-		Service:      describeService.Services[0].ServiceName,
-	})
-}
-
-func (p *ecsPushRedisProvisioner) deleteService(instance *models.Instance, describeService *ecs.DescribeServicesOutput) (*ecs.DeleteServiceOutput, error) {
-	return p.provisionerConfig.ecs.DeleteService(&ecs.DeleteServiceInput{
-		Cluster: p.provisionerConfig.cluster,
-		Force: aws.Bool(true),
-		Service: describeService.Services[0].ServiceName,
-	})
-}
-
-func (p *ecsPushRedisProvisioner) deleteServiceDiscovery(instance *models.Instance) (*servicediscovery.DeleteServiceOutput, error) {
-	listServiceResult, err := listServiceDiscoveryServices(p.provisionerConfig.serviceDiscovery)
-	if err != nil {
-		return nil, nil
-	}
-
-	for _, service := range listServiceResult.Services {
-		if *service.Name == pushRedisWithInstance(instance.Name) {
-			return p.provisionerConfig.serviceDiscovery.DeleteService(&servicediscovery.DeleteServiceInput{
-				Id: service.Id,
-			})
-		}
-	}
-
-	return nil, errors.New(fmt.Sprintf("could not find push-redis service discovery service for instance %s", instance.Name))
-}
-
 /*
 	===========================================================================
 	other
 	===========================================================================
 */
-func (p *ecsPushRedisProvisioner) listServiceDiscoveryServices() (*servicediscovery.ListServicesOutput, error) {
-	return p.provisionerConfig.serviceDiscovery.ListServices(&servicediscovery.ListServicesInput{})
-}
-
 func (p *ecsPushRedisProvisioner) describeService(instance *models.Instance) (*ecs.DescribeServicesOutput, error) {
-	return p.provisionerConfig.ecs.DescribeServices(&ecs.DescribeServicesInput{
-		Cluster:  p.provisionerConfig.cluster,
-		Services: []*string{aws.String(pushRedisWithInstance(instance.Name))},
-	})
+	return describeService(pushRedisWithInstance(instance.Name), p.provisionerConfig)
 }
 
 func NewEcsPushRedisProvisioner(logger *zap.Logger, provisionerConfig *EcsProvisionerConfig) EcsPushRedisProvisioner {

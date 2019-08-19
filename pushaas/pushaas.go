@@ -9,26 +9,25 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/rafaeleyng/pushaas/pushaas/ctors"
-	"github.com/rafaeleyng/pushaas/pushaas/models"
-	"github.com/rafaeleyng/pushaas/pushaas/provisioners"
+	"github.com/rafaeleyng/pushaas/pushaas/workers"
 )
 
 func runApp(
 	logger *zap.Logger,
 	router *gin.Engine,
 	config *viper.Viper,
-	//provisionWorker workers.ProvisionWorker,
-	provisioner provisioners.PushServiceProvisioner,
+	provisionWorker workers.ProvisionWorker,
+	//provisioner provisioners.PushServiceProvisioner,
 ) error {
 	log := logger.Named("runApp")
 
-	//provisionWorker.DispatchWorker()
+	provisionWorker.DispatchWorker()
 
-	instance := &models.Instance{
-		Name:   "instance-70",
-	}
+	//instance := &models.Instance{
+	//	Name:   "instance-72",
+	//}
 	//provisioner.Provision(instance)
-	provisioner.Deprovision(instance)
+	//provisioner.Deprovision(instance)
 
 	err := router.Run(fmt.Sprintf(":%s", config.GetString("server.port")))
 	if err != nil {

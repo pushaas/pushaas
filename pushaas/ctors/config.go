@@ -67,20 +67,34 @@ func setupFromDefaults(config *viper.Viper, env string) {
 	config.SetDefault("api.statics_path", "./client/build")
 
 	// provisioner
-	config.SetDefault("provisioner.provider", "aws-ecs")
+	config.SetDefault("provisioner.provider", "ecs")
+
+	// provisioner - ecs
+	config.SetDefault("provisioner.ecs.region", "us-east-1")
+	config.SetDefault("provisioner.ecs.cluster", "pushaas-cluster")
+	config.SetDefault("provisioner.ecs.logs-group", "/ecs/pushaas")
+	config.SetDefault("provisioner.ecs.logs-stream-prefix", "ecs")
+
+	config.SetDefault("provisioner.ecs.image-push-api", "rafaeleyng/push-api:latest") // TODO pass actual tag
+	config.SetDefault("provisioner.ecs.image-push-agent", "rafaeleyng/push-agent:latest") // TODO pass actual tag
+	config.SetDefault("provisioner.ecs.image-push-stream", "rafaeleyng/push-stream:latest") // TODO pass actual tag
 
 	// redis
 	config.SetDefault("redis.url", "redis://localhost:6379")
 	config.SetDefault("redis.db.instance.prefix", "instance")
+	config.SetDefault("redis.db.instance.vars-prefix", "instance-vars")
 	config.SetDefault("redis.db.bind-app.prefix", "bind-app")
 	config.SetDefault("redis.db.bind-unit.prefix", "bind-unit")
+	config.SetDefault("redis.pubsub.tasks.qprovision", "provision")
+	config.SetDefault("redis.pubsub.tasks.deprovision", "deprovision")
+	config.SetDefault("redis.pubsub.tasks.update-instance", "update-instance")
 
 	// server
 	config.SetDefault("server.port", "9000")
 
 	// workers
 	config.SetDefault("workers.enabled", true)
-	config.SetDefault("workers.provision.enabled", true)
+	config.SetDefault("workers.machinery.enabled", true)
 }
 
 func setupFromEnvironment(config *viper.Viper) {

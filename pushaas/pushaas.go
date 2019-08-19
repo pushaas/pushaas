@@ -12,10 +12,15 @@ import (
 	"github.com/rafaeleyng/pushaas/pushaas/workers"
 )
 
-func runApp(logger *zap.Logger, router *gin.Engine, config *viper.Viper, provisionWorker workers.ProvisionWorker) error {
+func runApp(
+	logger *zap.Logger,
+	router *gin.Engine,
+	config *viper.Viper,
+	machineryWorker workers.MachineryWorker,
+) error {
 	log := logger.Named("runApp")
 
-	provisionWorker.DispatchWorker()
+	machineryWorker.DispatchWorker()
 
 	err := router.Run(fmt.Sprintf(":%s", config.GetString("server.port")))
 	if err != nil {
@@ -32,6 +37,7 @@ func Run() {
 			ctors.NewViper,
 			ctors.NewLogger,
 			ctors.NewRedisClient,
+			ctors.NewMachineryServer,
 
 			// routers
 			ctors.NewGinRouter,
@@ -49,10 +55,18 @@ func Run() {
 			ctors.NewProvisionService,
 
 			// provisioners
-			ctors.NewProvisioner,
+			ctors.NewPushServiceProvisioner,
+
+			// provisioner - ecs
+			ctors.NewEcsProvisionerConfig,
+			ctors.NewEcsPushRedisProvisioner,
+			ctors.NewEcsPushStreamProvisioner,
+			ctors.NewEcsPushApiProvisioner,
 
 			// workers
+			ctors.NewInstanceWorker,
 			ctors.NewProvisionWorker,
+			ctors.NewMachineryWorker,
 		),
 		fx.Invoke(runApp),
 	)

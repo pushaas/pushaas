@@ -3,7 +3,10 @@ module github.com/rafaeleyng/pushaas
 go 1.12
 
 require (
-	github.com/BurntSushi/toml v0.3.1 // indirect
+	cloud.google.com/go v0.36.0
+	github.com/RichardKnop/machinery v1.6.5
+	github.com/aws/aws-sdk-go v1.21.8
+	github.com/dchest/uniuri v0.0.0-20160212164326-8902c56451e9
 	github.com/fatih/structs v1.1.0
 	github.com/gin-contrib/sse v0.0.0-20190301062529-5545eab6dad3 // indirect
 	github.com/gin-gonic/gin v1.3.0
@@ -20,7 +23,6 @@ require (
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/spf13/viper v1.3.2
-	github.com/stretchr/testify v1.3.0 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/dig v1.7.0 // indirect
 	go.uber.org/fx v1.9.0

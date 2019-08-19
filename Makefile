@@ -10,6 +10,11 @@ CONTAINER_DEV := $(CONTAINER)-dev
 IMAGE_DEV := rafaeleyng/$(CONTAINER_DEV)
 IMAGE_TAGGED_DEV := $(IMAGE_DEV):$(TAG)
 
+REDIS_TAG := latest
+CONTAINER_REDIS := pushaas-redis
+IMAGE_REDIS := rafaeleyng/$(CONTAINER_REDIS)
+IMAGE_TAGGED_REDIS := $(IMAGE_REDIS):$(REDIS_TAG)
+
 ########################################
 # app
 ########################################
@@ -135,6 +140,23 @@ docker-build-and-run-prod: docker-build-prod docker-run-prod
 docker-push-prod: docker-build-prod
 	@docker push \
 		$(IMAGE_TAGGED)
+
+# redis
+.PHONY: docker-clean-redis
+docker-clean-redis:
+	@-docker rm -f $(CONTAINER_REDIS)
+
+.PHONY: docker-build-redis
+docker-build-redis:
+	@docker build \
+		-f Dockerfile-redis \
+		-t $(IMAGE_TAGGED_REDIS) \
+		.
+
+.PHONY: docker-push-redis
+docker-push-redis: docker-build-redis
+	@docker push \
+		$(IMAGE_TAGGED_REDIS)
 
 ########################################
 # services

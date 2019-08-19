@@ -17,19 +17,24 @@ type (
 	InstanceRetrievalResult int
 	InstanceDeletionResult  int
 	InstanceStatusResult    int
+	InstanceUpdateResult    int
 
 	InstanceService interface {
 		Create(instanceForm *models.InstanceForm) InstanceCreationResult
 		GetByName(name string) (*models.Instance, InstanceRetrievalResult)
 		Delete(name string) InstanceDeletionResult
+		UpdateStatus(name string, status models.InstanceStatus) InstanceUpdateResult
 		GetStatusByName(name string) InstanceStatusResult
+		GetInstanceVars(name string) (map[string]string, error)
+		SetInstanceVars(name string, envVars map[string]string) (string, error)
 	}
 
 	instanceService struct {
-		instanceKeyPrefix string
-		logger            *zap.Logger
-		provisionService  ProvisionService
-		redisClient       redis.UniversalClient
+		instanceKeyPrefix     string
+		instanceVarsKeyPrefix string
+		logger                *zap.Logger
+		provisionService      ProvisionService
+		redisClient           redis.UniversalClient
 	}
 )
 
@@ -55,6 +60,11 @@ const (
 )
 
 const (
+	InstanceUpdateSuccess InstanceUpdateResult = iota
+	InstanceUpdateFailure
+)
+
+const (
 	InstanceStatusNotFound InstanceStatusResult = iota
 	InstanceStatusFailure
 
@@ -63,6 +73,11 @@ const (
 	InstanceStatusFailedStatus
 )
 
+/*
+	===========================================================================
+	instances
+	===========================================================================
+*/
 func (s *instanceService) instanceKey(instanceName string) string {
 	return fmt.Sprintf("%s:%s", s.instanceKeyPrefix, instanceName)
 }
@@ -183,6 +198,18 @@ func (s *instanceService) Delete(instanceName string) InstanceDeletionResult {
 	return InstanceDeletionSuccess
 }
 
+func (s *instanceService) UpdateStatus(name string, status models.InstanceStatus) InstanceUpdateResult {
+	instanceKey := s.instanceKey(name)
+
+	_, err := s.redisClient.HSet(instanceKey, "Status", status).Result()
+	if err != nil {
+		s.logger.Error("error while trying to update instance", zap.String("name", name), zap.Error(err))
+		return InstanceUpdateFailure
+	}
+
+	return InstanceUpdateSuccess
+}
+
 func (s *instanceService) GetStatusByName(name string) InstanceStatusResult {
 	// retrieve
 	instance, resultGet := s.GetByName(name)
@@ -203,13 +230,51 @@ func (s *instanceService) GetStatusByName(name string) InstanceStatusResult {
 	return InstanceStatusRunningStatus
 }
 
+/*
+	===========================================================================
+	vars
+	===========================================================================
+*/
+func (s *instanceService) instanceVarsKey(instanceName string) string {
+	return fmt.Sprintf("%s:%s", s.instanceVarsKeyPrefix, instanceName)
+}
+
+func (s *instanceService) GetInstanceVars(name string) (map[string]string, error) {
+	instanceKey := s.instanceKey(name)
+	envVars, err := s.redisClient.HGetAll(instanceKey).Result()
+	if err != nil {
+		s.logger.Error("GetInstanceVars failed", zap.Error(err))
+		return nil, err
+	}
+	return envVars, nil
+}
+
+func (s *instanceService) SetInstanceVars(name string, envVars map[string]string) (string, error) {
+	instanceKey := s.instanceKey(name)
+
+	// convert string to interface{}
+	interfaceMap := make(map[string]interface{}, len(envVars))
+	for k, v := range envVars {
+		interfaceMap[k] = v
+	}
+
+	result, err := s.redisClient.HMSet(instanceKey, interfaceMap).Result()
+	if err != nil {
+		s.logger.Error("SetInstanceVars failed", zap.Error(err))
+		return "", err
+	}
+	return result, nil
+}
+
 func NewInstanceService(config *viper.Viper, logger *zap.Logger, redisClient redis.UniversalClient, provisionService ProvisionService) InstanceService {
 	instanceKeyPrefix := config.GetString("redis.db.instance.prefix")
+	instanceVarsKeyPrefix := config.GetString("redis.db.instance.vars-prefix")
 
 	return &instanceService{
-		instanceKeyPrefix: instanceKeyPrefix,
-		logger:            logger,
-		provisionService:  provisionService,
-		redisClient:       redisClient,
+		instanceKeyPrefix:     instanceKeyPrefix,
+		instanceVarsKeyPrefix: instanceVarsKeyPrefix,
+		logger:                logger,
+		provisionService:      provisionService,
+		redisClient:           redisClient,
 	}
 }

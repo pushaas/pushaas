@@ -152,11 +152,11 @@ func (s *bindService) BindApp(instanceName string, bindAppForm *models.BindAppFo
 	}
 
 	// get instance variables
-	// TODO get variables from the real source
-	envVars := map[string]string{
-		"PUSHAAS_ENDPOINT": "the-endpoint",
-		"PUSHAAS_USERNAME": "the-username",
-		"PUSHAAS_PASSWORD": "the-password",
+	var envVars map[string]string
+	envVars, err := s.instanceService.GetInstanceVars(instance.Name)
+	if err != nil {
+		s.logger.Error("could not retrieve env vars for instance", zap.String("instanceName", instanceName), zap.Any("bindAppForm", bindAppForm), zap.Error(err))
+		return nil, BindAppFailure
 	}
 
 	return envVars, BindAppSuccess

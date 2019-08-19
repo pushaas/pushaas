@@ -16,10 +16,12 @@ func runApp(
 	logger *zap.Logger,
 	router *gin.Engine,
 	config *viper.Viper,
+	instanceWorker workers.InstanceWorker,
 	provisionWorker workers.ProvisionWorker,
 ) error {
 	log := logger.Named("runApp")
 
+	instanceWorker.DispatchWorker()
 	provisionWorker.DispatchWorker()
 
 	err := router.Run(fmt.Sprintf(":%s", config.GetString("server.port")))
@@ -64,6 +66,7 @@ func Run() {
 			ctors.NewEcsPushApiProvisioner,
 
 			// workers
+			ctors.NewInstanceWorker,
 			ctors.NewProvisionWorker,
 		),
 		fx.Invoke(runApp),

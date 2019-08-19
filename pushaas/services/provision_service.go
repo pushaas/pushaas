@@ -69,13 +69,13 @@ func (s *provisionService) DispatchProvision(instance *models.Instance) Dispatch
 	return DispatchProvisionResultSuccess
 }
 
-func (s *provisionService) buildDeprovisionSignature(messageJson *string) *tasks.Signature {
+func (s *provisionService) buildDeprovisionSignature(messageJson string) *tasks.Signature {
 	return &tasks.Signature{
 		Name: s.deprovisionTaskName,
 		Args: []tasks.Arg{
 			{
 				Type:  "string",
-				Value: *messageJson,
+				Value: messageJson,
 			},
 		},
 	}
@@ -89,7 +89,7 @@ func (s *provisionService) DispatchDeprovision(instance *models.Instance) Dispat
 	}
 
 	messageJson := string(bytes)
-	signature := s.buildDeprovisionSignature(&messageJson)
+	signature := s.buildDeprovisionSignature(messageJson)
 	_, err = s.machineryServer.SendTask(signature)
 	if err != nil {
 		s.logger.Error("error dispatching deprovision for instance", zap.Any("instance", instance), zap.Error(err))

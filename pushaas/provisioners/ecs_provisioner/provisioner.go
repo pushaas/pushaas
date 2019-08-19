@@ -1,14 +1,13 @@
 package ecs_provisioner
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws/session"
 	"go.uber.org/zap"
 
+	"github.com/dchest/uniuri"
+
 	"github.com/rafaeleyng/pushaas/pushaas/models"
 	"github.com/rafaeleyng/pushaas/pushaas/provisioners"
-	"github.com/dchest/uniuri"
 )
 
 type (
@@ -87,15 +86,16 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) *provisioners.Push
 		zap.Any("resultPushApi", resultPushApi),
 	)
 
-	envVars := map[string]string {
+	envVars := map[string]string{
 		provisioners.EnvVarEndpoint: pushApiWithInstance(instance.Name),
 		provisioners.EnvVarPassword: password,
 		provisioners.EnvVarUsername: username,
 	}
 
 	return &provisioners.PushServiceProvisionResult{
-		Status: provisioners.PushServiceProvisionStatusSuccess,
-		EnvVars: envVars,
+		Instance: instance,
+		EnvVars:  envVars,
+		Status:   provisioners.PushServiceProvisionStatusSuccess,
 	}
 }
 
@@ -149,7 +149,8 @@ func (p *ecsProvisioner) Deprovision(instance *models.Instance) *provisioners.Pu
 	)
 
 	return &provisioners.PushServiceDeprovisionResult{
-		Status: provisioners.PushServiceDeprovisionStatusSuccess,
+		Instance: instance,
+		Status:   provisioners.PushServiceDeprovisionStatusSuccess,
 	}
 }
 

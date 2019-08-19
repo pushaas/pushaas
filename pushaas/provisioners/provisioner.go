@@ -9,12 +9,14 @@ type (
 	PushServiceDeprovisionStatus int
 
 	PushServiceProvisionResult struct {
-		EnvVars map[string]string
-		Status  PushServiceProvisionStatus
+		Instance *models.Instance
+		EnvVars  map[string]string
+		Status   PushServiceProvisionStatus
 	}
 
 	PushServiceDeprovisionResult struct {
-		Status PushServiceDeprovisionStatus
+		Instance *models.Instance
+		Status   PushServiceDeprovisionStatus
 	}
 
 	PushServiceProvisioner interface {

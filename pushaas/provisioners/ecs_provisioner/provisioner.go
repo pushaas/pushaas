@@ -29,9 +29,6 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) provisioners.PushS
 		return provisioners.PushServiceProvisionResultFailure
 	}
 
-	// TODO collect here the undo functions
-	//undo := [] slice of functions that take chan
-
 	/*
 		push-redis
 	*/

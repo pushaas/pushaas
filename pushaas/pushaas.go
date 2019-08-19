@@ -17,17 +17,10 @@ func runApp(
 	router *gin.Engine,
 	config *viper.Viper,
 	provisionWorker workers.ProvisionWorker,
-	//provisioner provisioners.PushServiceProvisioner,
 ) error {
 	log := logger.Named("runApp")
 
 	provisionWorker.DispatchWorker()
-
-	//instance := &models.Instance{
-	//	Name:   "instance-72",
-	//}
-	//provisioner.Provision(instance)
-	//provisioner.Deprovision(instance)
 
 	err := router.Run(fmt.Sprintf(":%s", config.GetString("server.port")))
 	if err != nil {

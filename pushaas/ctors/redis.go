@@ -48,9 +48,10 @@ func NewMachineryServer(config *viper.Viper, logger *zap.Logger) (*machinery.Ser
 	url := getRedisUrl(config)
 
 	var cnf = &machineryConfig.Config{
-		Broker:             url,
-		DefaultQueue:       "machinery_tasks",
-		ResultBackend:      url,
+		Broker:        url,
+		DefaultQueue:  "machinery_tasks",
+		ResultBackend: url,
+		NoUnixSignals: true,
 	}
 
 	server, err := machinery.NewServer(cnf)

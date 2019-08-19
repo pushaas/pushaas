@@ -37,6 +37,7 @@ func (w *provisionWorker) handleProvisionTask(payload string) error {
 
 	// TODO update instance status - use another worker
 	_ = w.provisioner.Provision(&instance)
+
 	return nil
 }
 

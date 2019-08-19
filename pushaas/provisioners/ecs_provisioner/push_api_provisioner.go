@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
@@ -18,7 +17,7 @@ const pushApi = "push-api"
 
 type (
 	EcsPushApiProvisioner interface {
-		Provision(*models.Instance, *iam.GetRoleOutput, *ec2.DescribeNetworkInterfacesOutput, chan *provisionPushApiResult)
+		Provision(*models.Instance, *iam.GetRoleOutput, string, string, string, chan *provisionPushApiResult)
 		Deprovision(*models.Instance, chan *deprovisionPushApiResult)
 	}
 
@@ -51,11 +50,11 @@ func pushApiWithInstance(instanceName string) string {
 	provision
 	===========================================================================
 */
-func (p *ecsPushApiProvisioner) Provision(instance *models.Instance, role *iam.GetRoleOutput, eni *ec2.DescribeNetworkInterfacesOutput, ch chan *provisionPushApiResult) {
+func (p *ecsPushApiProvisioner) Provision(instance *models.Instance, role *iam.GetRoleOutput, username string, password string, pushStreamPublicIp string, ch chan *provisionPushApiResult) {
 	var err error
 
 	// create task definition
-	taskDefinition, err := p.createTaskDefinition(instance, role, eni)
+	taskDefinition, err := p.createTaskDefinition(instance, role, username, password, pushStreamPublicIp)
 	if err != nil {
 		ch <- &provisionPushApiResult{err: err}
 		return
@@ -97,11 +96,10 @@ func (p *ecsPushApiProvisioner) Provision(instance *models.Instance, role *iam.G
 func (p *ecsPushApiProvisioner) createTaskDefinition(
 	instance *models.Instance,
 	role *iam.GetRoleOutput,
-	eni *ec2.DescribeNetworkInterfacesOutput,
+	username string,
+	password string,
+	pushStreamPublicIp string,
 ) (*ecs.RegisterTaskDefinitionOutput, error) {
-	// TODO technical debt
-	pushStreamPublicIp := *eni.NetworkInterfaces[0].Association.PublicIp
-
 	return p.provisionerConfig.ecs.RegisterTaskDefinition(&ecs.RegisterTaskDefinitionInput{
 		Family:                  aws.String(pushApiWithInstance(instance.Name)),
 		ExecutionRoleArn:        role.Role.Arn,
@@ -136,7 +134,16 @@ func (p *ecsPushApiProvisioner) createTaskDefinition(
 					},
 					{
 						Name:  aws.String("PUSHAPI_PUSH_STREAM__URL"),
-						Value: aws.String(fmt.Sprintf("http://%s.tsuru:9080", pushStreamPublicIp)),
+						Value: aws.String(fmt.Sprintf("http://%s:9080", pushStreamPublicIp)),
+					},
+
+					{
+						Name:  aws.String("PUSHAPI_API__BASIC_AUTH_USER"),
+						Value: aws.String(username),
+					},
+					{
+						Name:  aws.String("PUSHAPI_API__BASIC_AUTH_PASSWORD"),
+						Value: aws.String(password),
 					},
 				},
 			},

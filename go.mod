@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go v0.36.0
 	github.com/RichardKnop/machinery v1.6.5
 	github.com/aws/aws-sdk-go v1.21.8
+	github.com/dchest/uniuri v0.0.0-20160212164326-8902c56451e9
 	github.com/fatih/structs v1.1.0
 	github.com/gin-contrib/sse v0.0.0-20190301062529-5545eab6dad3 // indirect
 	github.com/gin-gonic/gin v1.3.0

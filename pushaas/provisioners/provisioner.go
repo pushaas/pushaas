@@ -5,21 +5,34 @@ import (
 )
 
 type (
-	PushServiceProvisionResult   int
-	PushServiceDeprovisionResult int
+	PushServiceProvisionStatus   int
+	PushServiceDeprovisionStatus int
+
+	PushServiceProvisionResult struct {
+		EnvVars map[string]string
+		Status  PushServiceProvisionStatus
+	}
+
+	PushServiceDeprovisionResult struct {
+		Status PushServiceDeprovisionStatus
+	}
 
 	PushServiceProvisioner interface {
-		Provision(*models.Instance) PushServiceProvisionResult
-		Deprovision(*models.Instance) PushServiceDeprovisionResult
+		Provision(*models.Instance) *PushServiceProvisionResult
+		Deprovision(*models.Instance) *PushServiceDeprovisionResult
 	}
 )
 
 const (
-	PushServiceProvisionResultSuccess PushServiceProvisionResult = iota
-	PushServiceProvisionResultFailure
+	PushServiceProvisionStatusSuccess PushServiceProvisionStatus = iota
+	PushServiceProvisionStatusFailure
 )
 
 const (
-	PushServiceDeprovisionResultSuccess PushServiceDeprovisionResult = iota
-	PushServiceDeprovisionResultFailure
+	PushServiceDeprovisionStatusSuccess PushServiceDeprovisionStatus = iota
+	PushServiceDeprovisionStatusFailure
 )
+
+const EnvVarEndpoint = "PUSHAAS_ENDPOINT" // client apps use this var as the push-api endpoint
+const EnvVarPassword = "PUSHAAS_PASSWORD" // client apps use this var as password to authenticate to push-api
+const EnvVarUsername = "PUSHAAS_USERNAME" // client apps use this var as username to authenticate to push-api

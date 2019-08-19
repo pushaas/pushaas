@@ -1,11 +1,14 @@
 package ecs_provisioner
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws/session"
 	"go.uber.org/zap"
 
 	"github.com/rafaeleyng/pushaas/pushaas/models"
 	"github.com/rafaeleyng/pushaas/pushaas/provisioners"
+	"github.com/dchest/uniuri"
 )
 
 type (
@@ -19,14 +22,18 @@ type (
 	}
 )
 
-func (p *ecsProvisioner) Provision(instance *models.Instance) provisioners.PushServiceProvisionResult {
+func (p *ecsProvisioner) Provision(instance *models.Instance) *provisioners.PushServiceProvisionResult {
 	p.logger.Info("starting provision for instance", zap.Any("instance", instance))
 
 	var err error
+	failureResult := &provisioners.PushServiceProvisionResult{
+		Status: provisioners.PushServiceProvisionStatusFailure,
+	}
+
 	role, err := getIamRole(p.provisionerConfig.iam)
 	if err != nil {
 		p.logger.Error("failed while provisioning instance, failed to get iam role", zap.Any("instance", instance), zap.Error(err))
-		return provisioners.PushServiceProvisionResultFailure
+		return failureResult
 	}
 
 	/*
@@ -38,7 +45,7 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) provisioners.PushS
 	if resultPushRedis.err != nil {
 		p.logger.Error("push-redis: provision failure", zap.Any("instance", instance), zap.Error(resultPushRedis.err))
 		// TODO deprovision
-		return provisioners.PushServiceProvisionResultFailure
+		return failureResult
 	}
 	p.logger.Info("push-redis: provision success", zap.Any("instance", instance))
 
@@ -51,7 +58,7 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) provisioners.PushS
 	if resultPushStream.err != nil {
 		p.logger.Error("push-stream: provision failure", zap.Any("instance", instance), zap.Error(resultPushStream.err))
 		// TODO deprovision
-		return provisioners.PushServiceProvisionResultFailure
+		return failureResult
 	}
 	p.logger.Info("push-stream: provision success", zap.Any("instance", instance))
 
@@ -59,12 +66,16 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) provisioners.PushS
 		push-api
 	*/
 	chApi := make(chan *provisionPushApiResult)
-	go p.pushApiProvisioner.Provision(instance, role, resultPushStream.eni, chApi)
+	// TODO technical debt
+	pushStreamPublicIp := *resultPushStream.eni.NetworkInterfaces[0].Association.PublicIp
+	username := "app"
+	password := uniuri.New()
+	go p.pushApiProvisioner.Provision(instance, role, username, password, pushStreamPublicIp, chApi)
 	resultPushApi := <-chApi
 	if resultPushApi.err != nil {
 		p.logger.Error("push-api: provision failure", zap.Any("instance", instance), zap.Error(resultPushApi.err))
 		// TODO deprovision
-		return provisioners.PushServiceProvisionResultFailure
+		return failureResult
 	}
 	p.logger.Info("push-api: provision success", zap.Any("instance", instance))
 
@@ -76,10 +87,23 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) provisioners.PushS
 		zap.Any("resultPushApi", resultPushApi),
 	)
 
-	return provisioners.PushServiceProvisionResultSuccess
+	envVars := map[string]string {
+		provisioners.EnvVarEndpoint: pushApiWithInstance(instance.Name),
+		provisioners.EnvVarPassword: password,
+		provisioners.EnvVarUsername: username,
+	}
+
+	return &provisioners.PushServiceProvisionResult{
+		Status: provisioners.PushServiceProvisionStatusSuccess,
+		EnvVars: envVars,
+	}
 }
 
-func (p *ecsProvisioner) Deprovision(instance *models.Instance) provisioners.PushServiceDeprovisionResult {
+func (p *ecsProvisioner) Deprovision(instance *models.Instance) *provisioners.PushServiceDeprovisionResult {
+	failureResult := &provisioners.PushServiceDeprovisionResult{
+		Status: provisioners.PushServiceDeprovisionStatusFailure,
+	}
+
 	/*
 		push-api
 	*/
@@ -88,7 +112,7 @@ func (p *ecsProvisioner) Deprovision(instance *models.Instance) provisioners.Pus
 	resultPushApi := <-chApi
 	if resultPushApi.err != nil {
 		p.logger.Error("push-api: deprovision failure", zap.Any("instance", instance), zap.Error(resultPushApi.err))
-		return provisioners.PushServiceDeprovisionResultFailure
+		return failureResult
 	}
 	p.logger.Info("push-api: deprovision success", zap.Any("instance", instance))
 
@@ -100,7 +124,7 @@ func (p *ecsProvisioner) Deprovision(instance *models.Instance) provisioners.Pus
 	resultPushStream := <-chStream
 	if resultPushStream.err != nil {
 		p.logger.Error("push-stream: deprovision failure", zap.Any("instance", instance), zap.Error(resultPushStream.err))
-		return provisioners.PushServiceDeprovisionResultFailure
+		return failureResult
 	}
 	p.logger.Info("push-stream: deprovision success", zap.Any("instance", instance))
 
@@ -112,7 +136,7 @@ func (p *ecsProvisioner) Deprovision(instance *models.Instance) provisioners.Pus
 	resultPushRedis := <-chRedis
 	if resultPushRedis.err != nil {
 		p.logger.Error("push-redis: deprovision failure", zap.Any("instance", instance), zap.Error(resultPushRedis.err))
-		return provisioners.PushServiceDeprovisionResultFailure
+		return failureResult
 	}
 	p.logger.Info("push-redis: deprovision success", zap.Any("instance", instance))
 
@@ -124,7 +148,9 @@ func (p *ecsProvisioner) Deprovision(instance *models.Instance) provisioners.Pus
 		zap.Any("resultPushApi", resultPushApi),
 	)
 
-	return provisioners.PushServiceDeprovisionResultSuccess
+	return &provisioners.PushServiceDeprovisionResult{
+		Status: provisioners.PushServiceDeprovisionStatusSuccess,
+	}
 }
 
 func NewEcsPushServiceProvisioner(

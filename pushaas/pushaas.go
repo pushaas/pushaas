@@ -16,13 +16,11 @@ func runApp(
 	logger *zap.Logger,
 	router *gin.Engine,
 	config *viper.Viper,
-	instanceWorker workers.InstanceWorker,
-	provisionWorker workers.ProvisionWorker,
+	machineryWorker workers.MachineryWorker,
 ) error {
 	log := logger.Named("runApp")
 
-	instanceWorker.DispatchWorker()
-	provisionWorker.DispatchWorker()
+	machineryWorker.DispatchWorker()
 
 	err := router.Run(fmt.Sprintf(":%s", config.GetString("server.port")))
 	if err != nil {
@@ -68,6 +66,7 @@ func Run() {
 			// workers
 			ctors.NewInstanceWorker,
 			ctors.NewProvisionWorker,
+			ctors.NewMachineryWorker,
 		),
 		fx.Invoke(runApp),
 	)

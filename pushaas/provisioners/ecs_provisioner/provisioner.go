@@ -2,9 +2,8 @@ package ecs_provisioner
 
 import (
 	"github.com/aws/aws-sdk-go/aws/session"
-	"go.uber.org/zap"
-
 	"github.com/dchest/uniuri"
+	"go.uber.org/zap"
 
 	"github.com/rafaeleyng/pushaas/pushaas/models"
 	"github.com/rafaeleyng/pushaas/pushaas/provisioners"

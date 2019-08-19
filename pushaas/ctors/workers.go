@@ -14,6 +14,11 @@ func NewProvisionWorker(config *viper.Viper, logger *zap.Logger, machineryServer
 	return workers.NewProvisionWorker(config, logger, machineryServer, provisioner)
 }
 
-func NewInstanceWorker(config *viper.Viper, logger *zap.Logger, machineryServer *machinery.Server, instanceService services.InstanceService) workers.InstanceWorker {
-	return workers.NewInstanceWorker(config, logger, machineryServer, instanceService)
+func NewInstanceWorker(config *viper.Viper, logger *zap.Logger, instanceService services.InstanceService) workers.InstanceWorker {
+	return workers.NewInstanceWorker(config, logger, instanceService)
 }
+
+func NewMachineryWorker(config *viper.Viper, logger *zap.Logger, machineryServer *machinery.Server, provisionWorker workers.ProvisionWorker, instanceWorker workers.InstanceWorker) workers.MachineryWorker {
+	return workers.NewMachineryWorker(config, logger, machineryServer, provisionWorker, instanceWorker)
+}
+

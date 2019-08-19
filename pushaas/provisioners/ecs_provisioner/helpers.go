@@ -128,7 +128,7 @@ func deleteServiceDiscovery(instanceName string, provisionerConfig *EcsProvision
 	other
 	===========================================================================
 */
-const attempts = 30
+const attempts = 60
 const interval = 5 * time.Second
 
 func waitTrue(ch chan bool, evaluationFn func(attempt int) bool) {

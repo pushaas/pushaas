@@ -27,6 +27,7 @@ type (
 		GetStatusByName(name string) InstanceStatusResult
 		GetInstanceVars(name string) (map[string]string, error)
 		SetInstanceVars(name string, envVars map[string]string) (string, error)
+		DelInstanceVars(name string) (int64, error)
 	}
 
 	instanceService struct {
@@ -174,6 +175,8 @@ func (s *instanceService) doDelete(instance *models.Instance) InstanceDeletionRe
 }
 
 func (s *instanceService) Delete(instanceName string) InstanceDeletionResult {
+	// TODO missing: check if bindings exist before deleting
+
 	// check existing
 	instance, resultGet := s.GetByName(instanceName)
 	if resultGet == InstanceRetrievalNotFound {
@@ -194,6 +197,9 @@ func (s *instanceService) Delete(instanceName string) InstanceDeletionResult {
 		s.logger.Error("failed to dispatch deprovision", zap.Any("instance", instance))
 		return InstanceDeletionDeprovisionFailure
 	}
+
+	// delete env vars
+	_, _ = s.DelInstanceVars(instance.Name)
 
 	return InstanceDeletionSuccess
 }
@@ -240,7 +246,7 @@ func (s *instanceService) instanceVarsKey(instanceName string) string {
 }
 
 func (s *instanceService) GetInstanceVars(name string) (map[string]string, error) {
-	instanceKey := s.instanceKey(name)
+	instanceKey := s.instanceVarsKey(name)
 	envVars, err := s.redisClient.HGetAll(instanceKey).Result()
 	if err != nil {
 		s.logger.Error("GetInstanceVars failed", zap.Error(err))
@@ -250,7 +256,7 @@ func (s *instanceService) GetInstanceVars(name string) (map[string]string, error
 }
 
 func (s *instanceService) SetInstanceVars(name string, envVars map[string]string) (string, error) {
-	instanceKey := s.instanceKey(name)
+	instanceKey := s.instanceVarsKey(name)
 
 	// convert string to interface{}
 	interfaceMap := make(map[string]interface{}, len(envVars))
@@ -262,6 +268,17 @@ func (s *instanceService) SetInstanceVars(name string, envVars map[string]string
 	if err != nil {
 		s.logger.Error("SetInstanceVars failed", zap.Error(err))
 		return "", err
+	}
+	return result, nil
+}
+
+func (s *instanceService) DelInstanceVars(name string) (int64, error) {
+	instanceKey := s.instanceVarsKey(name)
+
+	result, err := s.redisClient.Del(instanceKey).Result()
+	if err != nil {
+		s.logger.Error("DelInstanceVars failed", zap.Error(err))
+		return 0, err
 	}
 	return result, nil
 }

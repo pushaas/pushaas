@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useContext, useEffect } from 'react'
 import clsx from 'clsx'
 
 import Grid from '@material-ui/core/Grid'
@@ -9,36 +9,28 @@ import SetTitleContext from 'components/contexts/SetTitleContext'
 import { useStyles } from 'components/App/Private/styles'
 // import Title from 'components/common/Title'
 
-const Stats = () => {
+const Dashboard = () => {
   const classes = useStyles()
-  const [stats, setStats] = useState()
   const setTitle = useContext(SetTitleContext)
 
   useEffect(() => {
-    setTitle('Stats')
+    setTitle('Dashboard')
   }, [setTitle])
 
-  // useEffect(() => {
-  //   statsService.getGlobalStats()
-  //     .then((data) => {
-  //       setStats(data)
-  //     })
-  // }, [setTitle])
-
-  const statsMinHeightPaper = clsx(classes.paper, classes.statsMinHeightPaper)
+  const dashboardMinHeightPaper = clsx(classes.paper, classes.dashboardMinHeightPaper)
 
   return (
     <React.Fragment>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
-          <Paper className={statsMinHeightPaper}>
+          <Paper className={dashboardMinHeightPaper}>
             Dashboard
-            {/* <AggregatedAgentsStats classes={classes} stats={stats} /> */}
+            TODO
           </Paper>
         </Grid>
         <Grid item xs={12} md={6}>
-          <Paper className={statsMinHeightPaper}>
-            {/* <SubscribersStats classes={classes} stats={stats} /> */}
+          <Paper className={dashboardMinHeightPaper}>
+            TODO
           </Paper>
         </Grid>
       </Grid>
@@ -46,4 +38,4 @@ const Stats = () => {
   )
 }
 
-export default Stats
+export default Dashboard

@@ -21,6 +21,7 @@ type (
 
 	InstanceService interface {
 		Create(instanceForm *models.InstanceForm) InstanceCreationResult
+		GetAll() ([]*models.Instance, InstanceRetrievalResult)
 		GetByName(name string) (*models.Instance, InstanceRetrievalResult)
 		Delete(name string) InstanceDeletionResult
 		UpdateStatus(name string, status models.InstanceStatus) InstanceUpdateResult
@@ -81,6 +82,70 @@ const (
 */
 func (s *instanceService) instanceKey(instanceName string) string {
 	return fmt.Sprintf("%s:%s", s.instanceKeyPrefix, instanceName)
+}
+
+func (s *instanceService) GetAll() ([]*models.Instance, InstanceRetrievalResult) {
+	var err error
+	patternAllInstanceKeys := s.instanceKey("*")
+
+	// get keys
+	keys, err := s.redisClient.Keys(patternAllInstanceKeys).Result()
+	if err != nil {
+		s.logger.Error("failed to retrieve instance keys", zap.Error(err), zap.String("patternAllInstanceKeys", patternAllInstanceKeys))
+		return nil, InstanceRetrievalFailure
+	}
+	if len(keys) == 0 {
+		return nil, InstanceRetrievalNotFound
+	}
+
+	//s.logger.Info("TODO", zap.Any("keys", keys))
+	//return nil, InstanceRetrievalSuccess
+
+	// init pipeline
+	pipeline := s.redisClient.Pipeline()
+	defer func() {
+		err := pipeline.Close()
+		if err != nil {
+			s.logger.Error("failed to close pipeline", zap.Error(err))
+		}
+	}()
+
+	// fill pipeline commands
+	for _, key := range keys {
+		pipeline.HGetAll(key)
+	}
+
+	// exec pipeline
+	results, err := pipeline.Exec()
+	if err != nil {
+		s.logger.Error("failed to execute pipeline to retrieve instances", zap.Error(err))
+		return nil, InstanceRetrievalFailure
+	}
+
+	instances := make([]*models.Instance, len(keys))
+	for i, cmd := range results {
+		mapCmd := cmd.(*redis.StringStringMapCmd)
+		instanceMap, err := mapCmd.Result()
+		if err != nil {
+			s.logger.Error("failed to retrieve instance", zap.Error(err), zap.String("key", keys[i]))
+			return nil, InstanceRetrievalFailure
+		}
+		if len(instanceMap) == 0 {
+			return nil, InstanceRetrievalNotFound
+		}
+
+		// decode
+		var instance models.Instance
+		err = mapstructure.Decode(instanceMap, &instance)
+		if err != nil {
+			s.logger.Error("failed to decode instance", zap.Error(err), zap.String("key", keys[i]))
+			return nil, InstanceRetrievalFailure
+		}
+
+		instances[i] = &instance
+	}
+
+	return instances, InstanceRetrievalSuccess
 }
 
 func (s *instanceService) GetByName(instanceName string) (*models.Instance, InstanceRetrievalResult) {

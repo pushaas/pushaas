@@ -3,11 +3,11 @@ import { Redirect, Route, Switch } from 'react-router-dom'
 
 import Container from '@material-ui/core/Container'
 
-import { privateHomePath, privateResourcesPathWithOptionalParam } from 'navigation'
+import { privateHomePath, privateInstancesPathWithOptionalParam } from 'navigation'
 import { useStyles } from 'components/App/Private/styles'
 
 import Dashboard from './views/Dashboard'
-import Resources from './views/Resources'
+import Instances from './views/Instances'
 
 const Main = (props) => {
   const classes = useStyles()
@@ -17,7 +17,7 @@ const Main = (props) => {
       <Container maxWidth="lg" className={classes.container}>
         <Switch>
           <Route path={privateHomePath} exact component={Dashboard} />
-          <Route path={privateResourcesPathWithOptionalParam} component={Resources} />
+          <Route path={privateInstancesPathWithOptionalParam} component={Instances} />
           <Redirect to={privateHomePath} />
         </Switch>
       </Container>

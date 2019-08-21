@@ -44,6 +44,8 @@ func (r *instanceRouter) getPlansOrInstance(c *gin.Context) {
 	name := nameFromPath(c)
 	if name == "plans" {
 		r.getPlans(c)
+	} else if name == "instances" {
+		r.getInstances(c)
 	} else {
 		r.getInstance(c)
 	}
@@ -52,6 +54,28 @@ func (r *instanceRouter) getPlansOrInstance(c *gin.Context) {
 func (r *instanceRouter) getPlans(c *gin.Context) {
 	plans := r.planService.GetAll()
 	c.JSON(http.StatusOK, plans)
+}
+
+func (r *instanceRouter) getInstances(c *gin.Context) {
+	instances, result := r.instanceService.GetAll()
+
+	if result == services.InstanceRetrievalNotFound {
+		c.JSON(http.StatusNotFound, models.Error{
+			Code:    models.ErrorInstanceRetrievalNotFound,
+			Message: "Instance not found",
+		})
+		return
+	}
+
+	if result == services.InstanceRetrievalFailure {
+		c.JSON(http.StatusInternalServerError, models.Error{
+			Code:    models.ErrorInstanceRetrievalFailed,
+			Message: "Failed to retrieve instance",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, instances)
 }
 
 func (r *instanceRouter) getInstance(c *gin.Context) {

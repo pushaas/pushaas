@@ -13,7 +13,7 @@ import DashboardIcon from '@material-ui/icons/Dashboard'
 import BarChartIcon from '@material-ui/icons/BarChart'
 
 import { useStyles } from 'components/App/Private/styles'
-import { privateHomePath, privateResourcesPath } from 'navigation'
+import { privateHomePath, privateInstancesPath } from 'navigation'
 
 const ListItemLink = ({ icon, primary, to }) => {
   const renderLink = React.forwardRef((itemProps, ref) => (<Link to={to} {...itemProps} innerRef={ref} />))
@@ -30,7 +30,7 @@ const ListItemLink = ({ icon, primary, to }) => {
 const MenuItems = () => (
   <div>
     <ListItemLink to={privateHomePath} primary="Dashboard" icon={<BarChartIcon />} />
-    <ListItemLink to={privateResourcesPath} primary="Resources" icon={<DashboardIcon />} />
+    <ListItemLink to={privateInstancesPath} primary="Instances" icon={<DashboardIcon />} />
   </div>
 )
 

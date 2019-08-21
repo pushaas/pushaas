@@ -77,37 +77,11 @@ export const useStyles = () => {
       overflow: 'auto',
       flexDirection: 'column',
     },
-    resourcesMinHeightPaper: {
-      minHeight: 480,
-    },
-    statsMinHeightPaper: {
+    dashboardMinHeightPaper: {
       minHeight: 200,
     },
-    channelIdCell: {
-      maxWidth: 100,
-      whiteWpace: 'nowrap',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
+    instancesMinHeightPaper: {
+      minHeight: 480,
     },
-    channelInfoDivider: {
-      margin: '20px 0',
-    },
-    statsSubscribers: {
-      flex: 1,
-    },
-    messagesPre: {
-      padding: '5px',
-      backgroundColor: '#eee',
-      fontSize: '12px',
-      maxHeight: '200px',
-      minHeight: '100px',
-      overflowY: 'scroll',
-      textAlign: 'left',
-      whiteSpace: 'pre-wrap',
-    },
-    messagesNote: {
-      color: theme.palette.text.hint,
-      marginTop: '5px',
-    }
   }))()
 }

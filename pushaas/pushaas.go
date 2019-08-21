@@ -20,7 +20,7 @@ func runApp(
 ) error {
 	log := logger.Named("runApp")
 
-	machineryWorker.DispatchWorker()
+	//machineryWorker.DispatchWorker()
 
 	err := router.Run(fmt.Sprintf(":%s", config.GetString("server.port")))
 	if err != nil {

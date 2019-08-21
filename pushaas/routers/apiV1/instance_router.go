@@ -12,11 +12,11 @@ import (
 )
 
 type (
-	ResourceRouter interface {
+	InstanceRouter interface {
 		routers.Router
 	}
 
-	resourceRouter struct {
+	instanceRouter struct {
 		instanceService services.InstanceService
 		planService     services.PlanService
 	}
@@ -40,7 +40,7 @@ func instanceFormFromContext(c *gin.Context) *models.InstanceForm {
 	}
 }
 
-func (r *resourceRouter) getPlansOrInstance(c *gin.Context) {
+func (r *instanceRouter) getPlansOrInstance(c *gin.Context) {
 	name := nameFromPath(c)
 	if name == "plans" {
 		r.getPlans(c)
@@ -49,12 +49,12 @@ func (r *resourceRouter) getPlansOrInstance(c *gin.Context) {
 	}
 }
 
-func (r *resourceRouter) getPlans(c *gin.Context) {
+func (r *instanceRouter) getPlans(c *gin.Context) {
 	plans := r.planService.GetAll()
 	c.JSON(http.StatusOK, plans)
 }
 
-func (r *resourceRouter) getInstance(c *gin.Context) {
+func (r *instanceRouter) getInstance(c *gin.Context) {
 	name := nameFromPath(c)
 	instance, result := r.instanceService.GetByName(name)
 
@@ -77,7 +77,7 @@ func (r *resourceRouter) getInstance(c *gin.Context) {
 	c.JSON(http.StatusOK, instance)
 }
 
-func (r *resourceRouter) postInstance(c *gin.Context) {
+func (r *instanceRouter) postInstance(c *gin.Context) {
 	instanceForm := instanceFormFromContext(c)
 	result := r.instanceService.Create(instanceForm)
 
@@ -116,12 +116,12 @@ func (r *resourceRouter) postInstance(c *gin.Context) {
 	c.Status(http.StatusCreated)
 }
 
-func (r *resourceRouter) putInstance(c *gin.Context) {
+func (r *instanceRouter) putInstance(c *gin.Context) {
 	// this endpoint is optional, we return 404 to signal Tsuru that is not implemented
 	c.Status(http.StatusNotFound)
 }
 
-func (r *resourceRouter) deleteInstance(c *gin.Context) {
+func (r *instanceRouter) deleteInstance(c *gin.Context) {
 	name := nameFromPath(c)
 	result := r.instanceService.Delete(name)
 
@@ -152,7 +152,7 @@ func (r *resourceRouter) deleteInstance(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (r *resourceRouter) getInstanceStatus(c *gin.Context) {
+func (r *instanceRouter) getInstanceStatus(c *gin.Context) {
 	name := nameFromPath(c)
 	result := r.instanceService.GetStatusByName(name)
 
@@ -194,7 +194,7 @@ func (r *resourceRouter) getInstanceStatus(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func (r *resourceRouter) SetupRoutes(router gin.IRouter) {
+func (r *instanceRouter) SetupRoutes(router gin.IRouter) {
 	// default / service instance
 	router.GET("/:name", r.getPlansOrInstance)
 
@@ -206,7 +206,7 @@ func (r *resourceRouter) SetupRoutes(router gin.IRouter) {
 }
 
 func NewInstanceRouter(instanceService services.InstanceService, planService services.PlanService) routers.Router {
-	return &resourceRouter{
+	return &instanceRouter{
 		instanceService: instanceService,
 		planService:     planService,
 	}

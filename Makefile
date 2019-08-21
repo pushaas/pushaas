@@ -45,6 +45,10 @@ kill:
 watch: kill
 	@AWS_PROFILE=pushaas AWS_SDK_LOAD_CONFIG=true realize start
 
+.PHONY: setup-client
+setup-client:
+	@cd client && yarn
+
 .PHONY: build-client
 build-client:
 	@cd client && yarn build

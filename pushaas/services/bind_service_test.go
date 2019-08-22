@@ -8,9 +8,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
 
-	"github.com/rafaeleyng/pushaas/pushaas/mocks"
-	"github.com/rafaeleyng/pushaas/pushaas/models"
-	"github.com/rafaeleyng/pushaas/pushaas/services"
+	"github.com/pushaas/pushaas/pushaas/mocks"
+	"github.com/pushaas/pushaas/pushaas/models"
+	"github.com/pushaas/pushaas/pushaas/services"
 )
 
 var _ = Describe("BindService", func() {

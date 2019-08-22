@@ -2,12 +2,12 @@ package ctors
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/rafaeleyng/pushaas/pushaas/routers/apiV1"
-	"github.com/rafaeleyng/pushaas/pushaas/services"
+	"github.com/pushaas/pushaas/pushaas/routers/apiV1"
+	"github.com/pushaas/pushaas/pushaas/services"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/rafaeleyng/pushaas/pushaas/routers"
+	"github.com/pushaas/pushaas/pushaas/routers"
 )
 
 func g(router gin.IRouter, path string, groupFn func(r gin.IRouter)) {

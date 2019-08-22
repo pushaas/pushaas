@@ -5,8 +5,8 @@ import (
 	"github.com/dchest/uniuri"
 	"go.uber.org/zap"
 
-	"github.com/rafaeleyng/pushaas/pushaas/models"
-	"github.com/rafaeleyng/pushaas/pushaas/provisioners"
+	"github.com/pushaas/pushaas/pushaas/models"
+	"github.com/pushaas/pushaas/pushaas/provisioners"
 )
 
 type (

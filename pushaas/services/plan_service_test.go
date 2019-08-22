@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/rafaeleyng/pushaas/pushaas/services"
+	"github.com/pushaas/pushaas/pushaas/services"
 )
 
 var _ = Describe("PlanService", func() {

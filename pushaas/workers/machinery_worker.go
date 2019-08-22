@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/rafaeleyng/pushaas/pushaas/services"
+	"github.com/pushaas/pushaas/pushaas/services"
 )
 
 type (

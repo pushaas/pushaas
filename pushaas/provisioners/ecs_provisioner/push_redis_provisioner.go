@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
 	"go.uber.org/zap"
 
-	"github.com/rafaeleyng/pushaas/pushaas/models"
+	"github.com/pushaas/pushaas/pushaas/models"
 )
 
 const pushRedis = "push-redis"

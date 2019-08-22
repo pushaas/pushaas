@@ -5,10 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/rafaeleyng/pushaas/pushaas/models"
+	"github.com/pushaas/pushaas/pushaas/models"
 
-	"github.com/rafaeleyng/pushaas/pushaas/routers"
-	"github.com/rafaeleyng/pushaas/pushaas/services"
+	"github.com/pushaas/pushaas/pushaas/routers"
+	"github.com/pushaas/pushaas/pushaas/services"
 )
 
 type (

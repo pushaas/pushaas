@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/rafaeleyng/pushaas/pushaas/provisioners"
-	"github.com/rafaeleyng/pushaas/pushaas/provisioners/ecs_provisioner"
+	"github.com/pushaas/pushaas/pushaas/provisioners"
+	"github.com/pushaas/pushaas/pushaas/provisioners/ecs_provisioner"
 )
 
 func NewPushServiceProvisioner(

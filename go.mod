@@ -1,4 +1,4 @@
-module github.com/rafaeleyng/pushaas
+module github.com/pushaas/pushaas
 
 go 1.12
 

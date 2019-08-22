@@ -12,10 +12,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/rafaeleyng/pushaas/pushaas/mocks"
-	"github.com/rafaeleyng/pushaas/pushaas/models"
-	"github.com/rafaeleyng/pushaas/pushaas/routers/apiV1"
-	"github.com/rafaeleyng/pushaas/pushaas/services"
+	"github.com/pushaas/pushaas/pushaas/mocks"
+	"github.com/pushaas/pushaas/pushaas/models"
+	"github.com/pushaas/pushaas/pushaas/routers/apiV1"
+	"github.com/pushaas/pushaas/pushaas/services"
 )
 
 var _ = Describe("InstanceRouter", func() {

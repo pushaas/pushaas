@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/rafaeleyng/pushaas/pushaas/models"
+	"github.com/pushaas/pushaas/pushaas/models"
 )
 
 type (

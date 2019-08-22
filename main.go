@@ -1,9 +1,9 @@
 package main
 
 import (
-	//"github.com/rafaeleyng/pushaas/pushaas"
+	//"github.com/pushaas/pushaas/pushaas"
 
-	"github.com/rafaeleyng/pushaas/pushaas"
+	"github.com/pushaas/pushaas/pushaas"
 )
 
 func main() {

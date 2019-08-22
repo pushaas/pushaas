@@ -5,9 +5,9 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/rafaeleyng/pushaas/pushaas/provisioners"
-	"github.com/rafaeleyng/pushaas/pushaas/services"
-	"github.com/rafaeleyng/pushaas/pushaas/workers"
+	"github.com/pushaas/pushaas/pushaas/provisioners"
+	"github.com/pushaas/pushaas/pushaas/services"
+	"github.com/pushaas/pushaas/pushaas/workers"
 )
 
 func NewProvisionWorker(config *viper.Viper, logger *zap.Logger, machineryServer *machinery.Server, provisioner provisioners.PushServiceProvisioner) workers.ProvisionWorker {

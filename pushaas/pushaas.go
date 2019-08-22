@@ -8,8 +8,8 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 
-	"github.com/rafaeleyng/pushaas/pushaas/ctors"
-	"github.com/rafaeleyng/pushaas/pushaas/workers"
+	"github.com/pushaas/pushaas/pushaas/ctors"
+	"github.com/pushaas/pushaas/pushaas/workers"
 )
 
 func runApp(

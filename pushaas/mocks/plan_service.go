@@ -4,8 +4,8 @@
 package mocks
 
 import (
-	"github.com/rafaeleyng/pushaas/pushaas/models"
-	"github.com/rafaeleyng/pushaas/pushaas/services"
+	"github.com/pushaas/pushaas/pushaas/models"
+	"github.com/pushaas/pushaas/pushaas/services"
 	"sync"
 )
 

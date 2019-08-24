@@ -92,22 +92,22 @@ func setupFromDefaults(config *viper.Viper, env string) {
 	// provisioner - ecs
 	config.SetDefault("provisioner.ecs.region", "us-east-1")
 	config.SetDefault("provisioner.ecs.cluster", "pushaas-cluster")
-	config.SetDefault("provisioner.ecs.logs-group", "/ecs/pushaas")
-	config.SetDefault("provisioner.ecs.logs-stream-prefix", "ecs")
+	config.SetDefault("provisioner.ecs.logs_group", "/ecs/pushaas")
+	config.SetDefault("provisioner.ecs.logs_stream_prefix", "ecs")
 
-	config.SetDefault("provisioner.ecs.image-push-api", "rafaeleyng/push-api:latest") // TODO pass actual tag
-	config.SetDefault("provisioner.ecs.image-push-agent", "rafaeleyng/push-agent:latest") // TODO pass actual tag
-	config.SetDefault("provisioner.ecs.image-push-stream", "rafaeleyng/push-stream:latest") // TODO pass actual tag
+	config.SetDefault("provisioner.ecs.image_push_api", "rafaeleyng/push-api:latest") // TODO pass actual tag
+	config.SetDefault("provisioner.ecs.image_push_agent", "rafaeleyng/push-agent:latest") // TODO pass actual tag
+	config.SetDefault("provisioner.ecs.image_push_stream", "rafaeleyng/push-stream:latest") // TODO pass actual tag
 
 	// redis
 	config.SetDefault("redis.url", "redis://localhost:6379")
 	config.SetDefault("redis.db.instance.prefix", "instance")
-	config.SetDefault("redis.db.instance.vars-prefix", "instance-vars")
-	config.SetDefault("redis.db.bind-app.prefix", "bind-app")
-	config.SetDefault("redis.db.bind-unit.prefix", "bind-unit")
+	config.SetDefault("redis.db.instance.vars_prefix", "instance-vars")
+	config.SetDefault("redis.db.bind_app.prefix", "bind-app")
+	config.SetDefault("redis.db.bind_unit.prefix", "bind-unit")
 	config.SetDefault("redis.pubsub.tasks.qprovision", "provision")
 	config.SetDefault("redis.pubsub.tasks.deprovision", "deprovision")
-	config.SetDefault("redis.pubsub.tasks.update-instance", "update-instance")
+	config.SetDefault("redis.pubsub.tasks.update_instance", "update-instance")
 
 	// server
 	config.SetDefault("server.port", "9000")

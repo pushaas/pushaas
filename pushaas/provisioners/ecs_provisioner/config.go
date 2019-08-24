@@ -32,27 +32,31 @@ type (
 )
 
 func NewEcsProvisionerConfig(config *viper.Viper, iamSvc iamiface.IAMAPI, ecsSvc ecsiface.ECSAPI, ec2Svc ec2iface.EC2API, serviceDiscoverySvc servicediscoveryiface.ServiceDiscoveryAPI) (*EcsProvisionerConfig, error) {
-	imagePushApi := config.GetString("provisioner.ecs.image-push-api")
-	imagePushAgent := config.GetString("provisioner.ecs.image-push-agent")
-	imagePushStream := config.GetString("provisioner.ecs.image-push-stream")
+	imagePushApi := config.GetString("provisioner.ecs.image_push_api")
+	imagePushAgent := config.GetString("provisioner.ecs.image_push_agent")
+	imagePushStream := config.GetString("provisioner.ecs.image_push_stream")
 
 	region := config.GetString("provisioner.ecs.region")
 	cluster := config.GetString("provisioner.ecs.cluster")
-	logsStreamPrefix := config.GetString("provisioner.ecs.logs-stream-prefix")
-	logsGroup := config.GetString("provisioner.ecs.logs-group")
+	logsStreamPrefix := config.GetString("provisioner.ecs.logs_stream_prefix")
+	logsGroup := config.GetString("provisioner.ecs.logs_group")
 
-	// required vars
-	// comes from `https://github.com/pushaas/pushaas-aws-ecs-config/scripts/40-pushaas/30-create-cluster/terraform.tfstate`
-	securityGroup := config.GetString("provisioner.ecs.security-group")
-	// comes from `https://github.com/pushaas/pushaas-aws-ecs-config/scripts/10-vpc/10-create-vpc/terraform.tfstate`
-	subnet := config.GetString("provisioner.ecs.subnet")
-	// comes from `https://github.com/pushaas/pushaas-aws-ecs-config/scripts/30-dns/10-create-namespace/terraform.tfstate`
-	dnsNamespace := config.GetString("provisioner.ecs.dns-namespace")
+	// value configured in `https://github.com/pushaas/pushaas-aws-ecs-config/scripts/40-pushaas/30-create-cluster/terraform.tfstate`
+	securityGroupKey := "provisioner.ecs.security_group"
+	securityGroup := config.GetString(securityGroupKey)
+
+	// value configured in `https://github.com/pushaas/pushaas-aws-ecs-config/scripts/10-vpc/10-create-vpc/terraform.tfstate`
+	subnetKey := "provisioner.ecs.subnet"
+	subnet := config.GetString(subnetKey)
+
+	// value configured in `https://github.com/pushaas/pushaas-aws-ecs-config/scripts/30-dns/10-create-namespace/terraform.tfstate`
+	dnsNamespaceKey := "provisioner.ecs.dns_namespace"
+	dnsNamespace := config.GetString(dnsNamespaceKey)
 
 	requiredVars := map[string]string{
-		"provisioner.ecs.security-group": securityGroup,
-		"provisioner.ecs.subnet": subnet,
-		"provisioner.ecs.dns-namespace": dnsNamespace,
+		securityGroupKey: securityGroup,
+		subnetKey: subnet,
+		dnsNamespaceKey: dnsNamespace,
 	}
 
 	for k, v := range requiredVars {

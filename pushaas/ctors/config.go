@@ -37,6 +37,26 @@ func getEnvVariable() (string, error) {
 	return env, nil
 }
 
+func checkRequiredVariables(env string) error {
+	if env != "prod" {
+		return nil
+	}
+
+	requiredVars := []string{
+		"AWS_REGION",
+		"AWS_ACCESS_KEY_ID",
+		"AWS_SECRET_ACCESS_KEY",
+	}
+
+	for _, v := range requiredVars {
+		if os.Getenv(v) == "" {
+			return errors.New(fmt.Sprintf("var %s is required for prod and was not set", v))
+		}
+	}
+
+	return nil
+}
+
 func setupFromConfigurationFile(config *viper.Viper, env string) error {
 	// try to use custom config file, or falls back to file corresponding to env
 	filepath := os.Getenv(configVarName)
@@ -105,7 +125,13 @@ func setupFromEnvironment(config *viper.Viper) {
 }
 
 func NewViper() (*viper.Viper, error) {
+	var err error
+
 	env, err := getEnvVariable()
+	if err != nil {
+		return nil, err
+	}
+	err = checkRequiredVariables(env)
 	if err != nil {
 		return nil, err
 	}

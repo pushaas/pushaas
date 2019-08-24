@@ -1,5 +1,19 @@
 ########################################
-# stage 1: build go
+# stage 1: build web app
+########################################
+FROM node:10.16.0-alpine as web-builder
+
+WORKDIR /app
+
+COPY client/package.json .
+COPY client/yarn.lock .
+RUN yarn
+
+COPY ./client .
+RUN rm -fr build && yarn build
+
+########################################
+# stage 2: build go
 ########################################
 FROM golang:1.12 as go-builder
 
@@ -16,20 +30,6 @@ COPY . .
 RUN rm -fr ./dist && mkdir ./dist
 RUN cp ./config/prod.yml ./dist/prod.yml
 RUN GOARCH=amd64 CGO_ENABLED=0 GOOS=linux go build -o ./dist/pushaas main.go
-
-########################################
-# stage 2: build web app
-########################################
-FROM node:10.16.0-alpine as web-builder
-
-WORKDIR /app
-
-COPY client/package.json .
-COPY client/yarn.lock .
-RUN yarn
-
-COPY ./client .
-RUN rm -fr build && yarn build
 
 ########################################
 # stage 3: run

@@ -42,22 +42,22 @@ func NewEcsProvisionerConfig(config *viper.Viper, iamSvc iamiface.IAMAPI, ecsSvc
 	logsGroup := config.GetString("provisioner.ecs.logs-group")
 
 	// required vars
-	// TODO comes from `scripts/40-pushaas/30-create-cluster/terraform.tfstate`, should create specific for each part of push service
+	// comes from `https://github.com/pushaas/pushaas-aws-ecs-config/scripts/40-pushaas/30-create-cluster/terraform.tfstate`
 	securityGroup := config.GetString("provisioner.ecs.security-group")
-	// TODO comes from `scripts/10-vpc/10-create-vpc/terraform.tfstate` - should have public and private
+	// comes from `https://github.com/pushaas/pushaas-aws-ecs-config/scripts/10-vpc/10-create-vpc/terraform.tfstate`
 	subnet := config.GetString("provisioner.ecs.subnet")
-	// TODO comes from `scripts/30-dns/10-create-namespace/terraform.tfstate`
+	// comes from `https://github.com/pushaas/pushaas-aws-ecs-config/scripts/30-dns/10-create-namespace/terraform.tfstate`
 	dnsNamespace := config.GetString("provisioner.ecs.dns-namespace")
 
-	requiredVars := []string{
-		securityGroup,
-		subnet,
-		dnsNamespace,
+	requiredVars := map[string]string{
+		"provisioner.ecs.security-group": securityGroup,
+		"provisioner.ecs.subnet": subnet,
+		"provisioner.ecs.dns-namespace": dnsNamespace,
 	}
 
-	for _, v := range requiredVars {
+	for k, v := range requiredVars {
 		if v == "" {
-			return nil, errors.New(fmt.Sprintf("ecsProvisioner env required and not set: %s", v))
+			return nil, errors.New(fmt.Sprintf("ecsProvisioner config required and not set: %s", k))
 		}
 	}
 

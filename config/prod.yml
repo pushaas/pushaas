@@ -1,8 +1,2 @@
 redis:
   url: redis://pushaas-redis.tsuru:6379
-
-provisioner:
-  aws:
-    security-group: "sg-037526dc9d82407b5"
-    subnet: "subnet-0852fc9806179665c"
-    dns-namespace: "ns-yixgi6scqxj5rgok"

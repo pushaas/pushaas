@@ -46,4 +46,7 @@ COPY --from=go-builder /app/dist/pushaas ./pushaas
 COPY --from=go-builder /app/config/prod.yml ./config/prod.yml
 COPY --from=web-builder /app/build ./client/build
 
+# thanks https://github.com/aws/aws-sdk-go/issues/2322#issuecomment-443502850
+RUN apk update && apk add ca-certificates && rm -rf /var/cache/apk/*
+
 ENTRYPOINT ["/app/pushaas"]

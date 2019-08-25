@@ -73,7 +73,7 @@ func NewMachineryWorker(config *viper.Viper, logger *zap.Logger, machineryServer
 		machineryServer:        machineryServer,
 		provisionTaskName:      config.GetString("redis.pubsub.tasks.provision"),
 		deprovisionTaskName:    config.GetString("redis.pubsub.tasks.deprovision"),
-		updateInstanceTaskName: config.GetString("redis.pubsub.tasks.update-instance"),
+		updateInstanceTaskName: config.GetString("redis.pubsub.tasks.update_instance"),
 		enabled:                enabled && workersEnabled,
 		provisionWorker:        provisionWorker,
 		instanceWorker:         instanceWorker,

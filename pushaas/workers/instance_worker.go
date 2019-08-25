@@ -63,7 +63,7 @@ func (w *instanceWorker) HandleUpdateInstance(payload string) error {
 func NewInstanceWorker(config *viper.Viper, logger *zap.Logger, instanceService services.InstanceService) InstanceWorker {
 	return &instanceWorker{
 		logger:                 logger.Named("instanceWorker"),
-		updateInstanceTaskName: config.GetString("redis.pubsub.tasks.update-instance"),
+		updateInstanceTaskName: config.GetString("redis.pubsub.tasks.update_instance"),
 		instanceService:        instanceService,
 	}
 }

@@ -105,7 +105,7 @@ func setupFromDefaults(config *viper.Viper, env string) {
 	config.SetDefault("redis.db.instance.vars_prefix", "instance-vars")
 	config.SetDefault("redis.db.bind_app.prefix", "bind-app")
 	config.SetDefault("redis.db.bind_unit.prefix", "bind-unit")
-	config.SetDefault("redis.pubsub.tasks.qprovision", "provision")
+	config.SetDefault("redis.pubsub.tasks.provision", "provision")
 	config.SetDefault("redis.pubsub.tasks.deprovision", "deprovision")
 	config.SetDefault("redis.pubsub.tasks.update_instance", "update-instance")
 

@@ -350,7 +350,7 @@ func (s *instanceService) DelInstanceVars(name string) (int64, error) {
 
 func NewInstanceService(config *viper.Viper, logger *zap.Logger, redisClient redis.UniversalClient, provisionService ProvisionService) InstanceService {
 	instanceKeyPrefix := config.GetString("redis.db.instance.prefix")
-	instanceVarsKeyPrefix := config.GetString("redis.db.instance.vars-prefix")
+	instanceVarsKeyPrefix := config.GetString("redis.db.instance.vars_prefix")
 
 	return &instanceService{
 		instanceKeyPrefix:     instanceKeyPrefix,

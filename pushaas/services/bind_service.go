@@ -259,8 +259,8 @@ func (s *bindService) UnbindUnit(instanceName string, bindUnitForm *models.BindU
 }
 
 func NewBindService(config *viper.Viper, logger *zap.Logger, redisClient redis.UniversalClient, instanceService InstanceService) BindService {
-	bindAppPrefix := config.GetString("redis.db.bind-app.prefix")
-	bindUnitPrefix := config.GetString("redis.db.bind-unit.prefix")
+	bindAppPrefix := config.GetString("redis.db.bind_app.prefix")
+	bindUnitPrefix := config.GetString("redis.db.bind_unit.prefix")
 
 	return &bindService{
 		bindAppPrefix:   bindAppPrefix,

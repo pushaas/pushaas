@@ -58,7 +58,7 @@ func (w *provisionWorker) sendUpdateTask(provisionResult *provisioners.PushServi
 }
 
 func (w *provisionWorker) HandleProvisionTask(payload string) error {
-	var instance models.Instance
+	var instance PushServiceProvisionResult
 	err := json.Unmarshal([]byte(payload), &instance)
 	if err != nil {
 		w.logger.Error("failed to unmarshal instance to provision", zap.String("payload", payload), zap.Error(err))
@@ -85,7 +85,7 @@ func NewProvisionWorker(config *viper.Viper, logger *zap.Logger, machineryServer
 	return &provisionWorker{
 		logger:                 logger.Named("provisionWorker"),
 		machineryServer:        machineryServer,
-		updateInstanceTaskName: config.GetString("redis.pubsub.tasks.update-instance"),
+		updateInstanceTaskName: config.GetString("redis.pubsub.tasks.update_instance"),
 		provisioner:            provisioner,
 	}
 }

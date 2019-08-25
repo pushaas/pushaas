@@ -25,7 +25,9 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) *provisioners.Push
 
 	var err error
 	failureResult := &provisioners.PushServiceProvisionResult{
+		Instance: instance,
 		Status: provisioners.PushServiceProvisionStatusFailure,
+		EnvVars: map[string]string{},
 	}
 
 	role, err := getIamRole(p.provisionerConfig.iam)
@@ -100,6 +102,7 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) *provisioners.Push
 
 func (p *ecsProvisioner) Deprovision(instance *models.Instance) *provisioners.PushServiceDeprovisionResult {
 	failureResult := &provisioners.PushServiceDeprovisionResult{
+		Instance: instance,
 		Status: provisioners.PushServiceDeprovisionStatusFailure,
 	}
 

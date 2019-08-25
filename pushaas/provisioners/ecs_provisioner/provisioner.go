@@ -1,6 +1,8 @@
 package ecs_provisioner
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/dchest/uniuri"
 	"go.uber.org/zap"
@@ -88,7 +90,7 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) *provisioners.Push
 	)
 
 	envVars := map[string]string{
-		provisioners.EnvVarEndpoint: pushApiWithInstance(instance.Name),
+		provisioners.EnvVarEndpoint: fmt.Sprintf("http://%s:%s", pushApiWithInstance(instance.Name), pushApiPort),
 		provisioners.EnvVarPassword: password,
 		provisioners.EnvVarUsername: username,
 	}

@@ -14,6 +14,7 @@ import (
 )
 
 const pushApi = "push-api"
+const pushApiPort = "8080"
 
 type (
 	EcsPushApiProvisioner interface {

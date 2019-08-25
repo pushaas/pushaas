@@ -98,7 +98,7 @@ func (r *instanceRouter) getInstance(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, instance)
+	c.JSON(http.StatusOK, []*models.Instance{instance})
 }
 
 func (r *instanceRouter) postInstance(c *gin.Context) {

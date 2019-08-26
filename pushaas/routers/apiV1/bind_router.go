@@ -2,6 +2,7 @@ package apiV1
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -137,7 +138,7 @@ func bindUnitFormFromPostContext(c *gin.Context) *models.BindUnitForm {
 func (r *bindRouter) postUnitBind(c *gin.Context) {
 	name := nameFromPath(c)
 	bindUnitForm := bindUnitFormFromPostContext(c)
-	result := r.bindService.BindUnit(name, bindUnitForm)
+	envVars, result := r.bindService.BindUnit(name, bindUnitForm)
 
 	if result == services.BindUnitFailure {
 		c.JSON(http.StatusInternalServerError, models.Error{
@@ -163,14 +164,22 @@ func (r *bindRouter) postUnitBind(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusCreated)
+	c.JSON(http.StatusCreated, envVars)
 }
 
 func bindUnitFormFromDeleteContext(c *gin.Context) *models.BindUnitForm {
 	vs, _ := routers.ParseBody(c)
+
 	appHost := vs["app-host"][0]
-	appName := vs["app-name"][0]
 	unitHost := vs["unit-host"][0]
+
+	// on Tsuru docs it says this will be send accordingly to the "else" format, but does not seem to be the case
+	var appName string
+	if len(vs["app-name"]) == 0 {
+		appName = strings.Split(appHost, ".")[0]
+	} else {
+		appName = vs["app-name"][0]
+	}
 
 	return &models.BindUnitForm{
 		AppHost: appHost,

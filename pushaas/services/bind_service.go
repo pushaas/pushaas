@@ -23,7 +23,7 @@ type (
 	BindService interface {
 		BindApp(name string, bindAppForm *models.BindAppForm) (map[string]string, BindAppResult)
 		UnbindApp(name string, bindAppForm *models.BindAppForm) UnbindAppResult
-		BindUnit(name string, bindUnitForm *models.BindUnitForm) BindUnitResult
+		BindUnit(name string, bindUnitForm *models.BindUnitForm) (map[string]string, BindUnitResult)
 		UnbindUnit(name string, bindUnitForm *models.BindUnitForm) UnbindUnitResult
 	}
 
@@ -211,23 +211,40 @@ func (s *bindService) doBindUnit(instanceName string, bindUnitForm *models.BindU
 		s.logger.Error("failed to create bindUnit", zap.Error(err), zap.Any("instanceName", instanceName), zap.Any("bindUnitForm", bindUnitForm))
 		return BindUnitFailure
 	} else if added == 0 {
-		return BindUnitAlreadyBound
+		//return BindUnitAlreadyBound
+		// TODO returning this because was having trouble
+		return BindUnitSuccess
 	}
 	return BindUnitSuccess
 }
 
-func (s *bindService) BindUnit(instanceName string, bindUnitForm *models.BindUnitForm) BindUnitResult {
+func (s *bindService) BindUnit(instanceName string, bindUnitForm *models.BindUnitForm) (map[string]string, BindUnitResult) {
+	// check instance existence
+	instance, resultInstanceGet := s.instanceService.GetByName(instanceName)
+	if resultInstanceGet == InstanceRetrievalNotFound {
+		s.logger.Error("instance not found for bindUnit", zap.String("instanceName", instanceName), zap.Any("bindUnitForm", bindUnitForm))
+		return nil, BindUnitFailure
+	}
+
 	// check binding existence
 	_, resultBindAppGet := s.getBindApp(instanceName, bindUnitForm.AppName)
 	if resultBindAppGet == BindAppRetrievalNotFound {
 		s.logger.Error("instance not bound to app", zap.String("instanceName", instanceName), zap.Any("bindUnitForm", bindUnitForm))
-		return BindUnitAppNotBound
+		return nil, BindUnitAppNotBound
 	} else if resultBindAppGet == BindAppRetrievalFailure {
-		return BindUnitFailure
+		return nil, BindUnitFailure
+	}
+
+	// get instance variables
+	var envVars map[string]string
+	envVars, err := s.instanceService.GetInstanceVars(instance.Name)
+	if err != nil {
+		s.logger.Error("could not retrieve env vars for instance", zap.String("instanceName", instanceName), zap.Any("bindUnitForm", bindUnitForm), zap.Error(err))
+		return nil, BindUnitFailure
 	}
 
 	// bind
-	return s.doBindUnit(instanceName, bindUnitForm)
+	return envVars, s.doBindUnit(instanceName, bindUnitForm)
 }
 
 func (s *bindService) doUnbindUnit(instanceName string, bindUnitForm *models.BindUnitForm) UnbindUnitResult {

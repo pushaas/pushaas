@@ -89,8 +89,11 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) *provisioners.Push
 		zap.Any("resultPushApi", resultPushApi),
 	)
 
+	// TODO technical debt
+	pushApiPrivateIp := *resultPushApi.eni.NetworkInterfaces[0].PrivateIpAddress
+
 	envVars := map[string]string{
-		provisioners.EnvVarEndpoint: fmt.Sprintf("http://%s:%s", pushApiWithInstance(instance.Name), pushApiPort),
+		provisioners.EnvVarEndpoint: fmt.Sprintf("http://%s:%s", pushApiPrivateIp, pushApiPort),
 		provisioners.EnvVarPassword: password,
 		provisioners.EnvVarUsername: username,
 	}

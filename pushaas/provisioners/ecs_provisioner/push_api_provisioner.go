@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
@@ -28,6 +29,7 @@ type (
 	}
 
 	provisionPushApiResult struct {
+		eni              *ec2.DescribeNetworkInterfacesOutput
 		service          *ecs.CreateServiceOutput
 		serviceDiscovery *servicediscovery.CreateServiceOutput
 		taskDefinition   *ecs.RegisterTaskDefinitionOutput
@@ -87,7 +89,24 @@ func (p *ecsPushApiProvisioner) Provision(instance *models.Instance, role *iam.G
 	}
 	p.logger.Debug("[push-api] service is up")
 
+	// wait for network interface
+	eniCh := make(chan bool)
+	go waitTaskNetworkInterface(p.logger, instance, eniCh, p.describeTaskNetworkInterface)
+	if isEniUp := <-eniCh; !isEniUp {
+		ch <- provisionPushApiResult{err: errors.New("push-api ENI failed to become available")}
+		return
+	}
+
+	// get network interface
+	eni, err := p.describeTaskNetworkInterface(instance)
+	if err != nil {
+		ch <- provisionPushApiResult{err: err}
+		return
+	}
+	p.logger.Debug("[push-api] network interface is up")
+
 	ch <- provisionPushApiResult{
+		eni:              eni,
 		service:          service,
 		serviceDiscovery: serviceDiscovery,
 		taskDefinition:   taskDefinition,
@@ -281,6 +300,51 @@ func (p *ecsPushApiProvisioner) Deprovision(instance *models.Instance, ch chan d
 	other
 	===========================================================================
 */
+func (p *ecsPushApiProvisioner) listTasks(instance *models.Instance) (*ecs.ListTasksOutput, error) {
+	return p.provisionerConfig.ecs.ListTasks(&ecs.ListTasksInput{
+		Cluster:     p.provisionerConfig.cluster,
+		ServiceName: aws.String(pushApiWithInstance(instance.Name)),
+	})
+}
+
+func (p *ecsPushApiProvisioner) describeTasks(instance *models.Instance) (*ecs.DescribeTasksOutput, error) {
+	listOutput, err := p.listTasks(instance)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(listOutput.TaskArns) == 0 {
+		return nil, errors.New(fmt.Sprintf("[describeTasks] no tasks in service %s", pushApiWithInstance(instance.Name)))
+	}
+
+	return p.provisionerConfig.ecs.DescribeTasks(&ecs.DescribeTasksInput{
+		Tasks:   []*string{listOutput.TaskArns[0]},
+		Cluster: p.provisionerConfig.cluster,
+	})
+}
+
+func (p *ecsPushApiProvisioner) describeTaskNetworkInterface(instance *models.Instance) (*ec2.DescribeNetworkInterfacesOutput, error) {
+	describeOutput, err := p.describeTasks(instance)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(describeOutput.Tasks) == 0 || len(describeOutput.Tasks[0].Attachments) == 0 {
+		return nil, errors.New(fmt.Sprintf("[describeTaskNetworkInterface] no tasks or attachments found for service %s", pushApiWithInstance(instance.Name)))
+	}
+
+	var eniId *string
+	for _, kv := range describeOutput.Tasks[0].Attachments[0].Details {
+		if *kv.Name == "networkInterfaceId" {
+			eniId = kv.Value
+		}
+	}
+
+	return p.provisionerConfig.ec2.DescribeNetworkInterfaces(&ec2.DescribeNetworkInterfacesInput{
+		NetworkInterfaceIds: []*string{eniId},
+	})
+}
+
 func (p *ecsPushApiProvisioner) describeService(instance *models.Instance) (*ecs.DescribeServicesOutput, error) {
 	return describeService(pushApiWithInstance(instance.Name), p.provisionerConfig)
 }

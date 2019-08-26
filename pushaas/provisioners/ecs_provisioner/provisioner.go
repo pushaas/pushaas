@@ -41,7 +41,7 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) *provisioners.Push
 	/*
 		push-redis
 	*/
-	chRedis := make(chan *provisionPushRedisResult)
+	chRedis := make(chan provisionPushRedisResult)
 	go p.pushRedisProvisioner.Provision(instance, chRedis)
 	resultPushRedis := <-chRedis
 	if resultPushRedis.err != nil {
@@ -54,7 +54,7 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) *provisioners.Push
 	/*
 		push-stream
 	*/
-	chStream := make(chan *provisionPushStreamResult)
+	chStream := make(chan provisionPushStreamResult)
 	go p.pushStreamProvisioner.Provision(instance, role, chStream)
 	resultPushStream := <-chStream
 	if resultPushStream.err != nil {
@@ -67,7 +67,7 @@ func (p *ecsProvisioner) Provision(instance *models.Instance) *provisioners.Push
 	/*
 		push-api
 	*/
-	chApi := make(chan *provisionPushApiResult)
+	chApi := make(chan provisionPushApiResult)
 	// TODO technical debt
 	pushStreamPublicIp := *resultPushStream.eni.NetworkInterfaces[0].Association.PublicIp
 	username := "app"
@@ -111,7 +111,7 @@ func (p *ecsProvisioner) Deprovision(instance *models.Instance) *provisioners.Pu
 	/*
 		push-api
 	*/
-	chApi := make(chan *deprovisionPushApiResult)
+	chApi := make(chan deprovisionPushApiResult)
 	go p.pushApiProvisioner.Deprovision(instance, chApi)
 	resultPushApi := <-chApi
 	if resultPushApi.err != nil {
@@ -123,7 +123,7 @@ func (p *ecsProvisioner) Deprovision(instance *models.Instance) *provisioners.Pu
 	/*
 		push-stream
 	*/
-	chStream := make(chan *deprovisionPushStreamResult)
+	chStream := make(chan deprovisionPushStreamResult)
 	go p.pushStreamProvisioner.Deprovision(instance, chStream)
 	resultPushStream := <-chStream
 	if resultPushStream.err != nil {
@@ -135,7 +135,7 @@ func (p *ecsProvisioner) Deprovision(instance *models.Instance) *provisioners.Pu
 	/*
 		push-redis
 	*/
-	chRedis := make(chan *deprovisionPushRedisResult)
+	chRedis := make(chan deprovisionPushRedisResult)
 	go p.pushRedisProvisioner.Deprovision(instance, chRedis)
 	resultPushRedis := <-chRedis
 	if resultPushRedis.err != nil {

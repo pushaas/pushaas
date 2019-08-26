@@ -19,8 +19,8 @@ const pushStream = "push-stream"
 
 type (
 	EcsPushStreamProvisioner interface {
-		Provision(*models.Instance, *iam.GetRoleOutput, chan *provisionPushStreamResult)
-		Deprovision(*models.Instance, chan *deprovisionPushStreamResult)
+		Provision(*models.Instance, *iam.GetRoleOutput, chan provisionPushStreamResult)
+		Deprovision(*models.Instance, chan deprovisionPushStreamResult)
 	}
 
 	ecsPushStreamProvisioner struct{
@@ -53,13 +53,13 @@ func pushStreamWithInstance(instanceName string) string {
 	provision
 	===========================================================================
 */
-func (p *ecsPushStreamProvisioner) Provision(instance *models.Instance, role *iam.GetRoleOutput, ch chan *provisionPushStreamResult) {
+func (p *ecsPushStreamProvisioner) Provision(instance *models.Instance, role *iam.GetRoleOutput, ch chan provisionPushStreamResult) {
 	var err error
 
 	// create task definition
 	taskDefinition, err := p.createTaskDefinition(instance, role)
 	if err != nil {
-		ch <- &provisionPushStreamResult{err: err}
+		ch <- provisionPushStreamResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-stream] did create task definition")
@@ -67,7 +67,7 @@ func (p *ecsPushStreamProvisioner) Provision(instance *models.Instance, role *ia
 	// create service discovery
 	serviceDiscovery, err := p.createServiceDiscovery(instance)
 	if err != nil {
-		ch <- &provisionPushStreamResult{err: err}
+		ch <- provisionPushStreamResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-stream] did create service discovery")
@@ -75,7 +75,7 @@ func (p *ecsPushStreamProvisioner) Provision(instance *models.Instance, role *ia
 	// create service
 	service, err := p.createService(instance, serviceDiscovery)
 	if err != nil {
-		ch <- &provisionPushStreamResult{err: err}
+		ch <- provisionPushStreamResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-stream] did create service")
@@ -84,7 +84,7 @@ func (p *ecsPushStreamProvisioner) Provision(instance *models.Instance, role *ia
 	waitCh := make(chan bool)
 	go waitServiceUp(p.logger, instance, waitCh, p.describeService)
 	if serviceUp := <-waitCh; !serviceUp {
-		ch <- &provisionPushStreamResult{err: errors.New("push-stream service did not become available")}
+		ch <- provisionPushStreamResult{err: errors.New("push-stream service did not become available")}
 		return
 	}
 	p.logger.Debug("[push-stream] service is up")
@@ -93,19 +93,19 @@ func (p *ecsPushStreamProvisioner) Provision(instance *models.Instance, role *ia
 	eniCh := make(chan bool)
 	go waitTaskNetworkInterface(p.logger, instance, eniCh, p.describeTaskNetworkInterface)
 	if isEniUp := <-eniCh; !isEniUp {
-		ch <- &provisionPushStreamResult{err: errors.New("push-stream ENI failed to become available")}
+		ch <- provisionPushStreamResult{err: errors.New("push-stream ENI failed to become available")}
 		return
 	}
 
 	// get network interface
 	eni, err := p.describeTaskNetworkInterface(instance)
 	if err != nil {
-		ch <- &provisionPushStreamResult{err: err}
+		ch <- provisionPushStreamResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-stream] network interface is up")
 
-	ch <- &provisionPushStreamResult{
+	ch <- provisionPushStreamResult{
 		eni:              eni,
 		service:          service,
 		serviceDiscovery: serviceDiscovery,
@@ -221,17 +221,17 @@ func (p *ecsPushStreamProvisioner) createService(instance *models.Instance, push
 	deprovision
 	===========================================================================
 */
-func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch chan *deprovisionPushStreamResult) {
+func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch chan deprovisionPushStreamResult) {
 	var err error
 
 	// get service
 	describedService, err := p.describeService(instance)
 	if err != nil {
-		ch <- &deprovisionPushStreamResult{err: err}
+		ch <- deprovisionPushStreamResult{err: err}
 		return
 	}
 	if len(describedService.Services) == 0 {
-		ch <- &deprovisionPushStreamResult{err: errors.New(fmt.Sprintf("[push-stream] could  not find service %s", pushStreamWithInstance(instance.Name)))}
+		ch <- deprovisionPushStreamResult{err: errors.New(fmt.Sprintf("[push-stream] could  not find service %s", pushStreamWithInstance(instance.Name)))}
 		return
 	}
 	p.logger.Debug("[push-stream] did locate service")
@@ -239,7 +239,7 @@ func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch cha
 	// scale to 0 tasks
 	_, err = stopService(describedService, p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushStreamResult{err: err}
+		ch <- deprovisionPushStreamResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-stream] did update service to desiredCount 0")
@@ -248,7 +248,7 @@ func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch cha
 	waitTasksCh := make(chan bool)
 	go waitServiceStopAllTasks(p.logger, instance, waitTasksCh, p.describeService)
 	if serviceDown := <-waitTasksCh; !serviceDown {
-		ch <- &deprovisionPushStreamResult{err: errors.New("[push-stream] service did not remove all tasks")}
+		ch <- deprovisionPushStreamResult{err: errors.New("[push-stream] service did not remove all tasks")}
 		return
 	}
 	p.logger.Debug("[push-stream] tasks are down")
@@ -256,7 +256,7 @@ func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch cha
 	// delete service
 	service, err := deleteService(describedService, p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushStreamResult{err: err}
+		ch <- deprovisionPushStreamResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-stream] did delete service")
@@ -265,7 +265,7 @@ func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch cha
 	waitServiceCh := make(chan bool)
 	go waitServiceDown(p.logger, instance, waitServiceCh, p.describeService)
 	if serviceDown := <-waitServiceCh; !serviceDown {
-		ch <- &deprovisionPushStreamResult{err: errors.New("[push-service] service did not go down")}
+		ch <- deprovisionPushStreamResult{err: errors.New("[push-service] service did not go down")}
 		return
 	}
 	p.logger.Debug("[push-stream] service is down")
@@ -273,14 +273,14 @@ func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch cha
 	// delete service discovery instances
 	_, err = deleteServiceDiscoveryInstances(pushStreamWithInstance(instance.Name), p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushStreamResult{err: err}
+		ch <- deprovisionPushStreamResult{err: err}
 		return
 	}
 
 	// delete service discovery
 	serviceDiscovery, err := deleteServiceDiscovery(pushStreamWithInstance(instance.Name), p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushStreamResult{err: err}
+		ch <- deprovisionPushStreamResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-stream] did delete service discovery")
@@ -288,12 +288,12 @@ func (p *ecsPushStreamProvisioner) Deprovision(instance *models.Instance, ch cha
 	// delete task definition
 	taskDefinition, err := deleteTaskDefinition(describedService, p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushStreamResult{err: err}
+		ch <- deprovisionPushStreamResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-stream] did delete task definition")
 
-	ch <- &deprovisionPushStreamResult{
+	ch <- deprovisionPushStreamResult{
 		service:          service,
 		serviceDiscovery: serviceDiscovery,
 		taskDefinition:   taskDefinition,

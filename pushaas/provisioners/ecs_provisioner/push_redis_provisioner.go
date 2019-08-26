@@ -16,8 +16,8 @@ const pushRedis = "push-redis"
 
 type (
 	EcsPushRedisProvisioner interface {
-		Provision(*models.Instance, chan *provisionPushRedisResult)
-		Deprovision(*models.Instance, chan *deprovisionPushRedisResult)
+		Provision(*models.Instance, chan provisionPushRedisResult)
+		Deprovision(*models.Instance, chan deprovisionPushRedisResult)
 	}
 
 	ecsPushRedisProvisioner struct {
@@ -47,14 +47,14 @@ func pushRedisWithInstance(instanceName string) string {
 	provision
 	===========================================================================
 */
-func (p *ecsPushRedisProvisioner) Provision(instance *models.Instance, ch chan *provisionPushRedisResult) {
+func (p *ecsPushRedisProvisioner) Provision(instance *models.Instance, ch chan provisionPushRedisResult) {
 	var err error
 
 	// create service discovery
 	serviceDiscovery, err := p.createServiceDiscovery(instance)
 	if err != nil {
 		//p.logger.Error()
-		ch <- &provisionPushRedisResult{err: err}
+		ch <- provisionPushRedisResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-redis] did create service discovery")
@@ -62,7 +62,7 @@ func (p *ecsPushRedisProvisioner) Provision(instance *models.Instance, ch chan *
 	// create service
 	service, err := p.createService(instance, serviceDiscovery)
 	if err != nil {
-		ch <- &provisionPushRedisResult{err: err}
+		ch <- provisionPushRedisResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-redis] did create service")
@@ -71,12 +71,12 @@ func (p *ecsPushRedisProvisioner) Provision(instance *models.Instance, ch chan *
 	waitCh := make(chan bool)
 	go waitServiceUp(p.logger, instance, waitCh, p.describeService)
 	if serviceUp := <-waitCh; !serviceUp {
-		ch <- &provisionPushRedisResult{err: errors.New("push-redis service did not become available")}
+		ch <- provisionPushRedisResult{err: errors.New("push-redis service did not become available")}
 		return
 	}
 	p.logger.Debug("[push-redis] service is up")
 
-	ch <- &provisionPushRedisResult{
+	ch <- provisionPushRedisResult{
 		service:          service,
 		serviceDiscovery: serviceDiscovery,
 	}
@@ -127,17 +127,17 @@ func (p *ecsPushRedisProvisioner) createService(instance *models.Instance,  serv
 	deprovision
 	===========================================================================
 */
-func (p *ecsPushRedisProvisioner) Deprovision(instance *models.Instance, ch chan *deprovisionPushRedisResult) {
+func (p *ecsPushRedisProvisioner) Deprovision(instance *models.Instance, ch chan deprovisionPushRedisResult) {
 	var err error
 
 	// get service
 	describedService, err := p.describeService(instance)
 	if err != nil {
-		ch <- &deprovisionPushRedisResult{err: err}
+		ch <- deprovisionPushRedisResult{err: err}
 		return
 	}
 	if len(describedService.Services) == 0 {
-		ch <- &deprovisionPushRedisResult{err: errors.New(fmt.Sprintf("[push-redis] could not find service %s", pushRedisWithInstance(instance.Name)))}
+		ch <- deprovisionPushRedisResult{err: errors.New(fmt.Sprintf("[push-redis] could not find service %s", pushRedisWithInstance(instance.Name)))}
 		return
 	}
 	p.logger.Debug("[push-redis] did locate service")
@@ -145,7 +145,7 @@ func (p *ecsPushRedisProvisioner) Deprovision(instance *models.Instance, ch chan
 	// scale to 0 tasks
 	_, err = stopService(describedService, p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushRedisResult{err: err}
+		ch <- deprovisionPushRedisResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-redis] did update service to desiredCount 0")
@@ -154,7 +154,7 @@ func (p *ecsPushRedisProvisioner) Deprovision(instance *models.Instance, ch chan
 	waitTasksCh := make(chan bool)
 	go waitServiceStopAllTasks(p.logger, instance, waitTasksCh, p.describeService)
 	if serviceDown := <-waitTasksCh; !serviceDown {
-		ch <- &deprovisionPushRedisResult{err: errors.New("[push-redis] service did not remove all tasks")}
+		ch <- deprovisionPushRedisResult{err: errors.New("[push-redis] service did not remove all tasks")}
 		return
 	}
 	p.logger.Debug("[push-redis] tasks are down")
@@ -162,7 +162,7 @@ func (p *ecsPushRedisProvisioner) Deprovision(instance *models.Instance, ch chan
 	// delete service
 	service, err := deleteService(describedService, p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushRedisResult{err: err}
+		ch <- deprovisionPushRedisResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-redis] did delete service")
@@ -171,7 +171,7 @@ func (p *ecsPushRedisProvisioner) Deprovision(instance *models.Instance, ch chan
 	waitServiceCh := make(chan bool)
 	go waitServiceDown(p.logger, instance, waitServiceCh, p.describeService)
 	if serviceDown := <-waitServiceCh; !serviceDown {
-		ch <- &deprovisionPushRedisResult{err: errors.New("[push-redis] service did not go down")}
+		ch <- deprovisionPushRedisResult{err: errors.New("[push-redis] service did not go down")}
 		return
 	}
 	p.logger.Debug("[push-redis] service is down")
@@ -179,19 +179,19 @@ func (p *ecsPushRedisProvisioner) Deprovision(instance *models.Instance, ch chan
 	// delete service discovery instances
 	_, err = deleteServiceDiscoveryInstances(pushRedisWithInstance(instance.Name), p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushRedisResult{err: err}
+		ch <- deprovisionPushRedisResult{err: err}
 		return
 	}
 
 	// delete service discovery
 	serviceDiscovery, err := deleteServiceDiscovery(pushRedisWithInstance(instance.Name), p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushRedisResult{err: err}
+		ch <- deprovisionPushRedisResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-redis] did delete service discovery")
 
-	ch <- &deprovisionPushRedisResult{
+	ch <- deprovisionPushRedisResult{
 		service:          service,
 		serviceDiscovery: serviceDiscovery,
 	}

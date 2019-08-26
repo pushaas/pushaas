@@ -18,8 +18,8 @@ const pushApiPort = "8080"
 
 type (
 	EcsPushApiProvisioner interface {
-		Provision(*models.Instance, *iam.GetRoleOutput, string, string, string, chan *provisionPushApiResult)
-		Deprovision(*models.Instance, chan *deprovisionPushApiResult)
+		Provision(*models.Instance, *iam.GetRoleOutput, string, string, string, chan provisionPushApiResult)
+		Deprovision(*models.Instance, chan deprovisionPushApiResult)
 	}
 
 	ecsPushApiProvisioner struct {
@@ -51,13 +51,13 @@ func pushApiWithInstance(instanceName string) string {
 	provision
 	===========================================================================
 */
-func (p *ecsPushApiProvisioner) Provision(instance *models.Instance, role *iam.GetRoleOutput, username string, password string, pushStreamPublicIp string, ch chan *provisionPushApiResult) {
+func (p *ecsPushApiProvisioner) Provision(instance *models.Instance, role *iam.GetRoleOutput, username string, password string, pushStreamPublicIp string, ch chan provisionPushApiResult) {
 	var err error
 
 	// create task definition
 	taskDefinition, err := p.createTaskDefinition(instance, role, username, password, pushStreamPublicIp)
 	if err != nil {
-		ch <- &provisionPushApiResult{err: err}
+		ch <- provisionPushApiResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-api] did create task definition")
@@ -65,7 +65,7 @@ func (p *ecsPushApiProvisioner) Provision(instance *models.Instance, role *iam.G
 	// create service discovery
 	serviceDiscovery, err := p.createServiceDiscovery(instance)
 	if err != nil {
-		ch <- &provisionPushApiResult{err: err}
+		ch <- provisionPushApiResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-api] did create service discovery")
@@ -73,7 +73,7 @@ func (p *ecsPushApiProvisioner) Provision(instance *models.Instance, role *iam.G
 	// create service
 	service, err := p.createService(instance, serviceDiscovery)
 	if err != nil {
-		ch <- &provisionPushApiResult{err: err}
+		ch <- provisionPushApiResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-api] did create service")
@@ -82,12 +82,12 @@ func (p *ecsPushApiProvisioner) Provision(instance *models.Instance, role *iam.G
 	waitCh := make(chan bool)
 	go waitServiceUp(p.logger, instance, waitCh, p.describeService)
 	if serviceUp := <-waitCh; !serviceUp {
-		ch <- &provisionPushApiResult{err: errors.New("push-api service did not become available")}
+		ch <- provisionPushApiResult{err: errors.New("push-api service did not become available")}
 		return
 	}
 	p.logger.Debug("[push-api] service is up")
 
-	ch <- &provisionPushApiResult{
+	ch <- provisionPushApiResult{
 		service:          service,
 		serviceDiscovery: serviceDiscovery,
 		taskDefinition:   taskDefinition,
@@ -197,17 +197,17 @@ func (p *ecsPushApiProvisioner) createService(instance *models.Instance, service
 	deprovision
 	===========================================================================
 */
-func (p *ecsPushApiProvisioner) Deprovision(instance *models.Instance, ch chan *deprovisionPushApiResult) {
+func (p *ecsPushApiProvisioner) Deprovision(instance *models.Instance, ch chan deprovisionPushApiResult) {
 	var err error
 
 	// get service
 	describedService, err := p.describeService(instance)
 	if err != nil {
-		ch <- &deprovisionPushApiResult{err: err}
+		ch <- deprovisionPushApiResult{err: err}
 		return
 	}
 	if len(describedService.Services) == 0 {
-		ch <- &deprovisionPushApiResult{err: errors.New(fmt.Sprintf("[push-api] could  not find service %s", pushApiWithInstance(instance.Name)))}
+		ch <- deprovisionPushApiResult{err: errors.New(fmt.Sprintf("[push-api] could  not find service %s", pushApiWithInstance(instance.Name)))}
 		return
 	}
 	p.logger.Debug("[push-api] did locate service")
@@ -215,7 +215,7 @@ func (p *ecsPushApiProvisioner) Deprovision(instance *models.Instance, ch chan *
 	// scale to 0 tasks
 	_, err = stopService(describedService, p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushApiResult{err: err}
+		ch <- deprovisionPushApiResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-api] did update service to desiredCount 0")
@@ -224,7 +224,7 @@ func (p *ecsPushApiProvisioner) Deprovision(instance *models.Instance, ch chan *
 	waitTasksCh := make(chan bool)
 	go waitServiceStopAllTasks(p.logger, instance, waitTasksCh, p.describeService)
 	if serviceDown := <-waitTasksCh; !serviceDown {
-		ch <- &deprovisionPushApiResult{err: errors.New("[push-api] service did not remove all tasks")}
+		ch <- deprovisionPushApiResult{err: errors.New("[push-api] service did not remove all tasks")}
 		return
 	}
 	p.logger.Debug("[push-api] tasks are down")
@@ -232,7 +232,7 @@ func (p *ecsPushApiProvisioner) Deprovision(instance *models.Instance, ch chan *
 	// delete service
 	service, err := deleteService(describedService, p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushApiResult{err: err}
+		ch <- deprovisionPushApiResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-api] did delete service")
@@ -241,7 +241,7 @@ func (p *ecsPushApiProvisioner) Deprovision(instance *models.Instance, ch chan *
 	waitServiceCh := make(chan bool)
 	go waitServiceDown(p.logger, instance, waitServiceCh, p.describeService)
 	if serviceDown := <-waitServiceCh; !serviceDown {
-		ch <- &deprovisionPushApiResult{err: errors.New("[push-api] service did not go down")}
+		ch <- deprovisionPushApiResult{err: errors.New("[push-api] service did not go down")}
 		return
 	}
 	p.logger.Debug("[push-api] service is down")
@@ -249,14 +249,14 @@ func (p *ecsPushApiProvisioner) Deprovision(instance *models.Instance, ch chan *
 	// delete service discovery instances
 	_, err = deleteServiceDiscoveryInstances(pushApiWithInstance(instance.Name), p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushApiResult{err: err}
+		ch <- deprovisionPushApiResult{err: err}
 		return
 	}
 
 	// delete service discovery
 	serviceDiscovery, err := deleteServiceDiscovery(pushApiWithInstance(instance.Name), p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushApiResult{err: err}
+		ch <- deprovisionPushApiResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-api] did delete service discovery")
@@ -264,12 +264,12 @@ func (p *ecsPushApiProvisioner) Deprovision(instance *models.Instance, ch chan *
 	// delete task definition
 	taskDefinition, err := deleteTaskDefinition(describedService, p.provisionerConfig)
 	if err != nil {
-		ch <- &deprovisionPushApiResult{err: err}
+		ch <- deprovisionPushApiResult{err: err}
 		return
 	}
 	p.logger.Debug("[push-api] did delete task definition")
 
-	ch <- &deprovisionPushApiResult{
+	ch <- deprovisionPushApiResult{
 		service:          service,
 		serviceDiscovery: serviceDiscovery,
 		taskDefinition:   taskDefinition,

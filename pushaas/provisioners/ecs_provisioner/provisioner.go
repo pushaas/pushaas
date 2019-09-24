@@ -22,6 +22,17 @@ type (
 	}
 )
 
+/*
+	This whole provisioner is just a POC.
+	It should be rewritten before using it in real code.
+
+	The main bad points are:
+		- the code was first written trying to parallelize steps (using channels to later synchronize), but things got difficult
+		  and I just ended up running everything sequentially, but kept the channels in order to change as little as possible.
+		- several points should consider adding load balancers to allow working with multiple instances, and using
+		  names (instead of IPs) to address services
+ */
+
 func (p *ecsProvisioner) Provision(instance *models.Instance) *provisioners.PushServiceProvisionResult {
 	p.logger.Info("starting provision for instance", zap.Any("instance", instance))
 

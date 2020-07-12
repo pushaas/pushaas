@@ -18,7 +18,7 @@ const defaultEnv = "local"
 
 var envs = map[string]struct{}{
 	defaultEnv: {},
-	"prod": {},
+	"prod":     {},
 }
 
 func getEnvVariable() (string, error) {
@@ -95,9 +95,9 @@ func setupFromDefaults(config *viper.Viper, env string) {
 	config.SetDefault("provisioner.ecs.logs_group", "/ecs/pushaas")
 	config.SetDefault("provisioner.ecs.logs_stream_prefix", "ecs")
 
-	config.SetDefault("provisioner.ecs.image_push_api", "rafaeleyng/push-api:latest") // TODO pass actual tag
-	config.SetDefault("provisioner.ecs.image_push_agent", "rafaeleyng/push-agent:latest") // TODO pass actual tag
-	config.SetDefault("provisioner.ecs.image_push_stream", "rafaeleyng/push-stream:latest") // TODO pass actual tag
+	config.SetDefault("provisioner.ecs.image_push_api", "pushaas/push-api:latest")       // TODO pass actual tag
+	config.SetDefault("provisioner.ecs.image_push_agent", "pushaas/push-agent:latest")   // TODO pass actual tag
+	config.SetDefault("provisioner.ecs.image_push_stream", "pushaas/push-stream:latest") // TODO pass actual tag
 
 	// redis
 	config.SetDefault("redis.url", "redis://localhost:6379")

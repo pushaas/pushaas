@@ -1,18 +1,18 @@
 TAG := latest
 CONTAINER := pushaas
-IMAGE := rafaeleyng/$(CONTAINER)
+IMAGE := pushaas/$(CONTAINER)
 IMAGE_TAGGED := $(IMAGE):$(TAG)
 NETWORK := pushaas_default
 PORT_CONTAINER := 9000
 PORT_HOST := 9000
 
 CONTAINER_DEV := $(CONTAINER)-dev
-IMAGE_DEV := rafaeleyng/$(CONTAINER_DEV)
+IMAGE_DEV := pushaas/$(CONTAINER_DEV)
 IMAGE_TAGGED_DEV := $(IMAGE_DEV):$(TAG)
 
 REDIS_TAG := latest
 CONTAINER_REDIS := pushaas-redis
-IMAGE_REDIS := rafaeleyng/$(CONTAINER_REDIS)
+IMAGE_REDIS := pushaas/$(CONTAINER_REDIS)
 IMAGE_TAGGED_REDIS := $(IMAGE_REDIS):$(REDIS_TAG)
 
 ########################################

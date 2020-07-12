@@ -20,7 +20,6 @@ IMAGE_TAGGED_REDIS := $(IMAGE_REDIS):$(REDIS_TAG)
 ########################################
 .PHONY: setup
 setup:
-	@go get github.com/oxequa/realize
 	@go get github.com/onsi/ginkgo/ginkgo
 	@go get github.com/onsi/gomega/...
 	@go get github.com/matryer/moq
@@ -40,10 +39,6 @@ run:
 .PHONY: kill
 kill:
 	@-killall push-api
-
-.PHONY: watch
-watch: kill
-	@AWS_PROFILE=pushaas AWS_SDK_LOAD_CONFIG=true realize start
 
 .PHONY: setup-client
 setup-client:
@@ -117,19 +112,19 @@ docker-build-dev:
 docker-build-and-run-dev: docker-build-dev docker-run-dev
 
 # prod
-.PHONY: docker-clean-prod
-docker-clean-prod:
+.PHONY: docker-clean
+docker-clean:
 	@-docker rm -f $(CONTAINER)
 
-.PHONY: docker-build-prod
-docker-build-prod:
+.PHONY: docker-build
+docker-build:
 	@docker build \
-		-f Dockerfile-prod \
+		-f Dockerfile \
 		-t $(IMAGE_TAGGED) \
 		.
 
-.PHONY: docker-run-prod
-docker-run-prod: docker-clean-prod
+.PHONY: docker-run
+docker-run: docker-clean
 	@docker run \
 		-it \
 		--name=$(CONTAINER) \
@@ -137,11 +132,11 @@ docker-run-prod: docker-clean-prod
 		-p $(PORT_HOST):$(PORT_CONTAINER) \
 		$(IMAGE_TAGGED)
 
-.PHONY: docker-build-and-run-prod
-docker-build-and-run-prod: docker-build-prod docker-run-prod
+.PHONY: docker-build-and-run
+docker-build-and-run: docker-build docker-run
 
-.PHONY: docker-push-prod
-docker-push-prod: docker-build-prod
+.PHONY: docker-push
+docker-push: docker-build
 	@docker push \
 		$(IMAGE_TAGGED)
 
